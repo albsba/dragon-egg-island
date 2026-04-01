@@ -1220,6 +1220,7 @@
       ],
       hitStreak: [0, 0],
       superActive: [null, null],
+      combo: { count: 0, timer: 0, displayTimer: 0 },
     };
     state.dragonSelectPlayer = 0;
     state.dragonSelectIndex = 0;
@@ -3241,6 +3242,10 @@
         if (e.curing) {
           e.cureTimer += dt;
           if (e.cureTimer >= 1) {
+            // Combo counter
+            state.battle.combo.count++;
+            state.battle.combo.timer = 2.0;
+            state.battle.combo.displayTimer = 1.5;
             // Spawn drop
             spawnDrop(e.x, e.y);
             // Add cure effect
@@ -3887,89 +3892,552 @@
             ctx.stroke();
             break;
           }
+
+          // ── SPECTACULAR SUPER EFFECTS ──────────────────────────────
+
           case 'flameWave': {
-            // Orange semi-transparent horizontal band sweeping across screen
-            ctx.fillStyle = 'rgba(255, 100, 0, ' + (alpha * 0.4) + ')';
-            const bandY = CANVAS_H * (1 - progress);
-            ctx.fillRect(0, bandY - 30, CANVAS_W, 60);
-            break;
-          }
-          case 'freezeBlast': {
-            // Blue tint flash across whole screen
-            ctx.fillStyle = 'rgba(79, 195, 247, ' + (alpha * 0.3) + ')';
+            // FIRE: wall of flame sweeping bottom-to-top with particles
+            // Warm orange vignette border
+            const fvAlpha = alpha * 0.5;
+            ctx.globalAlpha = fvAlpha;
+            const fvGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+            fvGrad.addColorStop(0, 'rgba(255,80,0,0.0)');
+            fvGrad.addColorStop(0.7, 'rgba(255,80,0,0.0)');
+            fvGrad.addColorStop(1, 'rgba(255,120,0,0.6)');
+            ctx.fillStyle = fvGrad;
             ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-            break;
-          }
-          case 'vineBurst': {
-            // Green flash + vine-like shapes from edges
-            ctx.fillStyle = 'rgba(67, 160, 71, ' + (alpha * 0.25) + ')';
-            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-            for (let v = 0; v < 6; v++) {
-              const vy = (v / 6) * CANVAS_H;
-              ctx.strokeStyle = 'rgba(76, 175, 80, ' + alpha + ')';
-              ctx.lineWidth = 3;
+            ctx.globalAlpha = 1;
+
+            // Three layered flame walls sweeping upward
+            const wallY = CANVAS_H * (1 - progress * 1.15);
+            const layers = [
+              { color: 'rgba(255,60,0,', width: 90, offset: 0 },
+              { color: 'rgba(255,130,0,', width: 60, offset: 15 },
+              { color: 'rgba(255,210,0,', width: 30, offset: 30 },
+            ];
+            for (const layer of layers) {
+              ctx.globalAlpha = alpha * 0.85;
+              // Wavy flame top using bezier segments
               ctx.beginPath();
-              ctx.moveTo(0, vy);
-              ctx.quadraticCurveTo(progress * CANVAS_W * 0.3, vy + Math.sin(v) * 30, progress * CANVAS_W * 0.5, vy);
-              ctx.stroke();
-              ctx.beginPath();
-              ctx.moveTo(CANVAS_W, vy);
-              ctx.quadraticCurveTo(CANVAS_W - progress * CANVAS_W * 0.3, vy + Math.cos(v) * 30, CANVAS_W - progress * CANVAS_W * 0.5, vy);
-              ctx.stroke();
+              ctx.moveTo(0, wallY + layer.offset);
+              for (let fx = 0; fx <= CANVAS_W; fx += 40) {
+                const waveMag = 18 + layer.width * 0.2;
+                const wx1 = fx + 10;
+                const wy1 = wallY + layer.offset - Math.abs(Math.sin((fx / CANVAS_W) * Math.PI * 6 + state.time * 8)) * waveMag;
+                const wx2 = fx + 30;
+                const wy2 = wallY + layer.offset + 8;
+                ctx.bezierCurveTo(wx1, wy1, wx2, wy2, fx + 40, wallY + layer.offset);
+              }
+              ctx.lineTo(CANVAS_W, CANVAS_H);
+              ctx.lineTo(0, CANVAS_H);
+              ctx.closePath();
+              ctx.fillStyle = layer.color + '0.9)';
+              ctx.fill();
+              ctx.globalAlpha = 1;
             }
-            break;
-          }
-          case 'healWave': {
-            // Pink tint + floating hearts
-            ctx.fillStyle = 'rgba(233, 30, 99, ' + (alpha * 0.2) + ')';
-            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-            ctx.font = '16px serif';
-            ctx.textAlign = 'center';
-            for (let h = 0; h < 8; h++) {
-              const hx = (h / 8) * CANVAS_W + 50;
-              const hy = CANVAS_H - progress * CANVAS_H * 0.8 + Math.sin(h * 2) * 30;
-              ctx.fillStyle = 'rgba(255, 105, 180, ' + alpha + ')';
-              ctx.fillText('\u2665', hx, hy);
-            }
-            break;
-          }
-          case 'shadowCloak': {
-            // Dark purple flash around player
-            ctx.fillStyle = 'rgba(94, 53, 177, ' + (alpha * 0.4) + ')';
-            ctx.beginPath();
-            ctx.arc(e.x, e.y, 40 + progress * 20, 0, Math.PI * 2);
-            ctx.fill();
-            break;
-          }
-          case 'supernova': {
-            // Golden expanding circle from center
-            ctx.strokeStyle = 'rgba(255, 193, 7, ' + alpha + ')';
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.arc(CANVAS_W / 2, CANVAS_H / 2, progress * Math.max(CANVAS_W, CANVAS_H) * 0.6, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.fillStyle = 'rgba(255, 215, 0, ' + (alpha * 0.15) + ')';
-            ctx.beginPath();
-            ctx.arc(CANVAS_W / 2, CANVAS_H / 2, progress * Math.max(CANVAS_W, CANVAS_H) * 0.6, 0, Math.PI * 2);
-            ctx.fill();
-            break;
-          }
-          case 'rainbowWave': {
-            // Rainbow-colored dots spiraling outward
-            for (let r = 0; r < 12; r++) {
-              const angle = (r / 12) * Math.PI * 2 + state.time * 3;
-              const dist = progress * 200;
-              const rx = CANVAS_W / 2 + Math.cos(angle) * dist;
-              const ry = CANVAS_H / 2 + Math.sin(angle) * dist;
-              const hue = (r * 30 + state.time * 100) % 360;
-              ctx.fillStyle = 'hsla(' + hue + ', 90%, 60%, ' + alpha + ')';
+
+            // Fire particles shooting upward
+            for (let fp = 0; fp < 30; fp++) {
+              const seed = fp * 137.5;
+              const px = ((seed * 73.1) % CANVAS_W);
+              const baseY = wallY + (fp % 5) * 12;
+              const riseAmt = progress * 180 * (0.5 + (fp % 3) * 0.4);
+              const py = baseY - riseAmt * ((fp % 7) / 7);
+              if (py > CANVAS_H) continue;
+              const particleAlpha = alpha * (1 - (py < wallY ? (wallY - py) / 120 : 0));
+              if (particleAlpha <= 0) continue;
+              ctx.globalAlpha = Math.min(1, particleAlpha);
+              const hue = 20 + (fp % 3) * 20; // orange to yellow
+              ctx.fillStyle = 'hsl(' + hue + ', 100%, 60%)';
               ctx.beginPath();
-              ctx.arc(rx, ry, 5, 0, Math.PI * 2);
+              ctx.arc(px, py, 3 + (fp % 4), 0, Math.PI * 2);
               ctx.fill();
             }
+            ctx.globalAlpha = 1;
+
+            // Colored vignette border (warm orange edges)
+            ctx.globalAlpha = alpha * 0.35;
+            const fEdge = 60;
+            ctx.fillStyle = 'rgba(255,80,0,1)';
+            ctx.fillRect(0, 0, fEdge, CANVAS_H);
+            ctx.fillRect(CANVAS_W - fEdge, 0, fEdge, CANVAS_H);
+            ctx.fillRect(0, 0, CANVAS_W, fEdge);
+            ctx.fillRect(0, CANVAS_H - fEdge, CANVAS_W, fEdge);
+            ctx.globalAlpha = 1;
+            break;
+          }
+
+          case 'freezeBlast': {
+            // ICE: crystals explode outward, frosty overlay, frozen tint
+            // Frosty full-screen overlay
+            ctx.globalAlpha = alpha * 0.35;
+            ctx.fillStyle = 'rgba(180,230,255,1)';
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+            ctx.globalAlpha = 1;
+
+            // Blue-white vignette border
+            ctx.globalAlpha = alpha * 0.45;
+            const iEdge = 55;
+            ctx.fillStyle = 'rgba(100,200,255,1)';
+            ctx.fillRect(0, 0, iEdge, CANVAS_H);
+            ctx.fillRect(CANVAS_W - iEdge, 0, iEdge, CANVAS_H);
+            ctx.fillRect(0, 0, CANVAS_W, iEdge);
+            ctx.fillRect(0, CANVAS_H - iEdge, CANVAS_W, iEdge);
+            ctx.globalAlpha = 1;
+
+            // Ice crystals exploding outward in starburst from dragon position
+            const icx = e.x, icy = e.y;
+            for (let ic = 0; ic < 36; ic++) {
+              const angle = (ic / 36) * Math.PI * 2;
+              const speed = 80 + (ic % 4) * 50;
+              const dist = progress * speed;
+              const cx = icx + Math.cos(angle) * dist;
+              const cy = icy + Math.sin(angle) * dist;
+              if (cx < 0 || cx > CANVAS_W || cy < 0 || cy > CANVAS_H) continue;
+              const sz = 4 + (ic % 3) * 3;
+              ctx.globalAlpha = alpha * 0.9;
+              ctx.save();
+              ctx.translate(cx, cy);
+              ctx.rotate(angle + progress * Math.PI);
+              // Diamond / crystal shape
+              ctx.beginPath();
+              ctx.moveTo(0, -sz);
+              ctx.lineTo(sz * 0.4, 0);
+              ctx.lineTo(0, sz);
+              ctx.lineTo(-sz * 0.4, 0);
+              ctx.closePath();
+              ctx.fillStyle = ic % 2 === 0 ? 'rgba(200,240,255,0.95)' : 'rgba(120,200,255,0.95)';
+              ctx.fill();
+              ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+              ctx.lineWidth = 1;
+              ctx.stroke();
+              ctx.restore();
+            }
+
+            // Snowflake scatter across screen (static positions, fade in)
+            ctx.font = '18px serif';
+            ctx.textAlign = 'center';
+            for (let sf = 0; sf < 20; sf++) {
+              const sfx = ((sf * 157.3) % CANVAS_W);
+              const sfy = ((sf * 89.7) % CANVAS_H);
+              ctx.globalAlpha = progress * alpha * 0.8;
+              ctx.fillStyle = '#ffffff';
+              ctx.fillText('\u2745', sfx, sfy);
+            }
+            ctx.globalAlpha = 1;
+            break;
+          }
+
+          case 'vineBurst': {
+            // NATURE: thick vines from bottom, leaves, green energy rings
+            // Green screen overlay
+            ctx.globalAlpha = alpha * 0.22;
+            ctx.fillStyle = 'rgba(30,120,30,1)';
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+            ctx.globalAlpha = 1;
+
+            // Green vignette border
+            ctx.globalAlpha = alpha * 0.4;
+            const vEdge = 50;
+            ctx.fillStyle = 'rgba(34,139,34,1)';
+            ctx.fillRect(0, 0, vEdge, CANVAS_H);
+            ctx.fillRect(CANVAS_W - vEdge, 0, vEdge, CANVAS_H);
+            ctx.fillRect(0, 0, CANVAS_W, vEdge);
+            ctx.fillRect(0, CANVAS_H - vEdge, CANVAS_W, vEdge);
+            ctx.globalAlpha = 1;
+
+            // Thick vines shooting upward from bottom
+            for (let v = 0; v < 8; v++) {
+              const vx = (v / 8) * CANVAS_W + (v % 2 === 0 ? 20 : -20) + 30;
+              const vineHeight = progress * CANVAS_H * 1.1;
+              const sway = Math.sin(v * 1.7 + state.time * 3) * 30 * progress;
+              ctx.globalAlpha = alpha * 0.9;
+              ctx.strokeStyle = v % 2 === 0 ? 'rgba(50,160,50,1)' : 'rgba(80,200,80,1)';
+              ctx.lineWidth = 6 + (v % 3) * 3;
+              ctx.lineCap = 'round';
+              ctx.beginPath();
+              ctx.moveTo(vx, CANVAS_H);
+              // S-curve vine
+              ctx.bezierCurveTo(
+                vx + sway, CANVAS_H - vineHeight * 0.33,
+                vx - sway * 1.5, CANVAS_H - vineHeight * 0.66,
+                vx + sway * 0.5, CANVAS_H - vineHeight
+              );
+              ctx.stroke();
+              // Branch off main vine
+              if (progress > 0.4) {
+                const branchY = CANVAS_H - vineHeight * 0.5;
+                const branchLen = 40 * (progress - 0.4) / 0.6;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(vx + sway * 0.3, branchY);
+                ctx.quadraticCurveTo(vx + sway + 30, branchY - 20, vx + sway + branchLen, branchY - branchLen * 0.7);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(vx + sway * 0.3, branchY);
+                ctx.quadraticCurveTo(vx + sway - 30, branchY - 20, vx + sway - branchLen, branchY - branchLen * 0.7);
+                ctx.stroke();
+              }
+            }
+            ctx.lineCap = 'butt';
+            ctx.globalAlpha = 1;
+
+            // Leaf scatter
+            ctx.font = '14px serif';
+            ctx.textAlign = 'center';
+            for (let lf = 0; lf < 25; lf++) {
+              const lfx = ((lf * 113.9) % CANVAS_W);
+              const lfy = CANVAS_H - progress * ((lf * 77.3) % CANVAS_H) - 20;
+              if (lfy < 0) continue;
+              ctx.globalAlpha = alpha * 0.85;
+              ctx.fillStyle = lf % 3 === 0 ? '#55cc55' : lf % 3 === 1 ? '#33aa33' : '#88dd44';
+              ctx.save();
+              ctx.translate(lfx, lfy);
+              ctx.rotate(state.time * 2 + lf);
+              ctx.fillText('\u2764', 0, 0); // use heart shape rotated for leaf look
+              ctx.restore();
+            }
+
+            // Green energy rings pulsing from center
+            for (let ring = 0; ring < 3; ring++) {
+              const ringProgress = (progress + ring * 0.33) % 1;
+              const ringR = ringProgress * Math.max(CANVAS_W, CANVAS_H) * 0.7;
+              ctx.globalAlpha = (1 - ringProgress) * alpha * 0.6;
+              ctx.strokeStyle = ring % 2 === 0 ? 'rgba(80,200,80,1)' : 'rgba(150,255,100,1)';
+              ctx.lineWidth = 4;
+              ctx.beginPath();
+              ctx.arc(CANVAS_W / 2, CANVAS_H / 2, ringR, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+            break;
+          }
+
+          case 'healWave': {
+            // LOVE: massive heart explosion, spiral hearts, pink sparkle rain
+            // Warm pink screen glow
+            const glowA = Math.sin(progress * Math.PI) * alpha * 0.3;
+            ctx.globalAlpha = glowA;
+            ctx.fillStyle = 'rgba(255,100,180,1)';
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+            ctx.globalAlpha = 1;
+
+            // Pink vignette border
+            ctx.globalAlpha = alpha * 0.4;
+            const hEdge = 55;
+            ctx.fillStyle = 'rgba(255,20,120,1)';
+            ctx.fillRect(0, 0, hEdge, CANVAS_H);
+            ctx.fillRect(CANVAS_W - hEdge, 0, hEdge, CANVAS_H);
+            ctx.fillRect(0, 0, CANVAS_W, hEdge);
+            ctx.fillRect(0, CANVAS_H - hEdge, CANVAS_W, hEdge);
+            ctx.globalAlpha = 1;
+
+            // Big pulsing heart in center
+            const bigHeartSize = 48 + Math.sin(progress * Math.PI * 4) * 12;
+            ctx.globalAlpha = alpha * 0.9;
+            ctx.font = bigHeartSize + 'px serif';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#FF1493';
+            ctx.fillText('\u2665', CANVAS_W / 2, CANVAS_H / 2 + bigHeartSize * 0.35);
+            // Glowing ring around big heart
+            ctx.globalAlpha = alpha * 0.5;
+            ctx.strokeStyle = 'rgba(255,100,180,1)';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.arc(CANVAS_W / 2, CANVAS_H / 2, bigHeartSize * 0.8 + Math.sin(progress * Math.PI * 4) * 8, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+
+            // Dozens of hearts spiraling outward
+            for (let h = 0; h < 40; h++) {
+              const spiralAngle = (h / 40) * Math.PI * 6 + progress * Math.PI * 2;
+              const spiralR = progress * (60 + h * 7);
+              const hx = CANVAS_W / 2 + Math.cos(spiralAngle) * spiralR;
+              const hy = CANVAS_H / 2 + Math.sin(spiralAngle) * spiralR;
+              if (hx < -30 || hx > CANVAS_W + 30 || hy < -30 || hy > CANVAS_H + 30) continue;
+              const sz = 10 + (h % 4) * 6;
+              const pinkHue = 320 + (h % 3) * 15;
+              ctx.globalAlpha = alpha * (0.6 + (h % 3) * 0.13);
+              ctx.font = sz + 'px serif';
+              ctx.fillStyle = 'hsl(' + pinkHue + ', 100%, 65%)';
+              ctx.fillText('\u2665', hx, hy);
+            }
+
+            // Pink sparkle rain falling from top
+            for (let sp = 0; sp < 30; sp++) {
+              const spx = ((sp * 157.3 + 50) % CANVAS_W);
+              const spDropFrac = (progress + sp * 0.033) % 1;
+              const spy = spDropFrac * (CANVAS_H + 20) - 10;
+              ctx.globalAlpha = alpha * 0.75 * (1 - spDropFrac * 0.4);
+              ctx.fillStyle = sp % 2 === 0 ? '#FF69B4' : '#FFB6C1';
+              ctx.font = '10px serif';
+              ctx.fillText('\u2605', spx, spy);
+            }
+            ctx.globalAlpha = 1;
+            break;
+          }
+
+          case 'shadowCloak': {
+            // SHADOW: dark energy swirls, tendrils, particle vortex, dark aura
+            // Dark purple vignette border
+            ctx.globalAlpha = alpha * 0.5;
+            const sEdge = 70;
+            ctx.fillStyle = 'rgba(30,0,60,1)';
+            ctx.fillRect(0, 0, sEdge, CANVAS_H);
+            ctx.fillRect(CANVAS_W - sEdge, 0, sEdge, CANVAS_H);
+            ctx.fillRect(0, 0, CANVAS_W, sEdge);
+            ctx.fillRect(0, CANVAS_H - sEdge, CANVAS_W, sEdge);
+            ctx.globalAlpha = 1;
+
+            // Dark aura glow around dragon
+            const auraR = 50 + Math.sin(progress * Math.PI * 6) * 15;
+            ctx.globalAlpha = alpha * 0.6;
+            const auraGrad = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, auraR + 30);
+            auraGrad.addColorStop(0, 'rgba(120,0,200,0.8)');
+            auraGrad.addColorStop(0.5, 'rgba(60,0,120,0.5)');
+            auraGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = auraGrad;
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, auraR + 30, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+
+            // Shadow tendrils reaching outward
+            for (let td = 0; td < 12; td++) {
+              const tdAngle = (td / 12) * Math.PI * 2 + state.time * 1.5;
+              const tdLen = (60 + (td % 3) * 40) * progress;
+              const tdX = e.x + Math.cos(tdAngle) * tdLen;
+              const tdY = e.y + Math.sin(tdAngle) * tdLen;
+              ctx.globalAlpha = alpha * 0.7;
+              ctx.strokeStyle = td % 2 === 0 ? 'rgba(100,0,200,0.8)' : 'rgba(50,0,100,0.8)';
+              ctx.lineWidth = 3 + (td % 3);
+              ctx.lineCap = 'round';
+              ctx.beginPath();
+              ctx.moveTo(e.x, e.y);
+              const cpx = e.x + Math.cos(tdAngle + 0.4) * tdLen * 0.6;
+              const cpy = e.y + Math.sin(tdAngle + 0.4) * tdLen * 0.6;
+              ctx.quadraticCurveTo(cpx, cpy, tdX, tdY);
+              ctx.stroke();
+            }
+            ctx.lineCap = 'butt';
+
+            // Dark particle vortex spinning around dragon
+            for (let dp = 0; dp < 25; dp++) {
+              const dpAngle = (dp / 25) * Math.PI * 2 + state.time * 4 + progress * Math.PI * 3;
+              const dpR = 35 + (dp % 4) * 18;
+              const dpx = e.x + Math.cos(dpAngle) * dpR;
+              const dpy = e.y + Math.sin(dpAngle) * dpR;
+              ctx.globalAlpha = alpha * 0.8;
+              ctx.fillStyle = dp % 3 === 0 ? 'rgba(150,50,255,0.9)' : dp % 3 === 1 ? 'rgba(80,0,160,0.9)' : 'rgba(200,150,255,0.7)';
+              ctx.beginPath();
+              ctx.arc(dpx, dpy, 2 + dp % 3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            break;
+          }
+
+          case 'supernova': {
+            // STAR: massive starburst, white flash, golden rays, star rain
+            const cx = CANVAS_W / 2, cy = CANVAS_H / 2;
+
+            // White flash at start, fades quickly
+            if (progress < 0.25) {
+              ctx.globalAlpha = (1 - progress / 0.25) * 0.85;
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+              ctx.globalAlpha = 1;
+            }
+
+            // Golden vignette border
+            ctx.globalAlpha = alpha * 0.45;
+            const snEdge = 65;
+            ctx.fillStyle = 'rgba(255,200,0,1)';
+            ctx.fillRect(0, 0, snEdge, CANVAS_H);
+            ctx.fillRect(CANVAS_W - snEdge, 0, snEdge, CANVAS_H);
+            ctx.fillRect(0, 0, CANVAS_W, snEdge);
+            ctx.fillRect(0, CANVAS_H - snEdge, CANVAS_W, snEdge);
+            ctx.globalAlpha = 1;
+
+            // Multiple expanding rings of light
+            for (let ring = 0; ring < 4; ring++) {
+              const rp = (progress + ring * 0.25) % 1;
+              const rR = rp * Math.max(CANVAS_W, CANVAS_H) * 0.75;
+              ctx.globalAlpha = (1 - rp) * alpha * 0.7;
+              ctx.strokeStyle = ring % 2 === 0 ? 'rgba(255,220,0,1)' : 'rgba(255,255,150,1)';
+              ctx.lineWidth = 5 - ring;
+              ctx.beginPath();
+              ctx.arc(cx, cy, rR, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+
+            // Golden rays shooting in all directions
+            const numRays = 16;
+            for (let ray = 0; ray < numRays; ray++) {
+              const rayAngle = (ray / numRays) * Math.PI * 2 + progress * 0.5;
+              const rayLen = progress * Math.max(CANVAS_W, CANVAS_H) * 0.8;
+              const rayEndX = cx + Math.cos(rayAngle) * rayLen;
+              const rayEndY = cy + Math.sin(rayAngle) * rayLen;
+              ctx.globalAlpha = alpha * 0.55;
+              ctx.strokeStyle = ray % 2 === 0 ? 'rgba(255,220,0,1)' : 'rgba(255,255,100,1)';
+              ctx.lineWidth = 4 - (ray % 2);
+              ctx.lineCap = 'round';
+              ctx.beginPath();
+              ctx.moveTo(cx, cy);
+              ctx.lineTo(rayEndX, rayEndY);
+              ctx.stroke();
+            }
+            ctx.lineCap = 'butt';
+
+            // Central golden glow
+            ctx.globalAlpha = alpha * 0.5;
+            const snGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 80 + progress * 60);
+            snGrad.addColorStop(0, 'rgba(255,255,200,0.9)');
+            snGrad.addColorStop(0.4, 'rgba(255,220,0,0.6)');
+            snGrad.addColorStop(1, 'rgba(255,150,0,0)');
+            ctx.fillStyle = snGrad;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 80 + progress * 60, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+
+            // Star shapes scattering + golden particle rain
+            ctx.font = '16px serif';
+            ctx.textAlign = 'center';
+            for (let st = 0; st < 30; st++) {
+              const stAngle = (st / 30) * Math.PI * 2 + progress * 1.5;
+              const stDist = progress * (50 + (st % 5) * 70);
+              const stx = cx + Math.cos(stAngle) * stDist;
+              const sty = cy + Math.sin(stAngle) * stDist;
+              if (stx < -20 || stx > CANVAS_W + 20 || sty < -20 || sty > CANVAS_H + 20) continue;
+              ctx.globalAlpha = alpha * (0.7 + (st % 3) * 0.1);
+              ctx.fillStyle = st % 3 === 0 ? '#FFD700' : st % 3 === 1 ? '#FFF176' : '#FFB300';
+              ctx.fillText('\u2605', stx, sty);
+            }
+            // Golden particle rain from top
+            for (let gp = 0; gp < 20; gp++) {
+              const gpx = ((gp * 193.7) % CANVAS_W);
+              const gpDrop = (progress + gp * 0.05) % 1;
+              const gpy = gpDrop * (CANVAS_H + 10) - 5;
+              ctx.globalAlpha = alpha * 0.7 * (1 - gpDrop * 0.3);
+              ctx.fillStyle = gp % 2 === 0 ? '#FFD700' : '#FFEE58';
+              ctx.beginPath();
+              ctx.arc(gpx, gpy, 3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            break;
+          }
+
+          case 'rainbowWave': {
+            // RAINBOW: arc sweep, shockwave rings, prismatic beams, confetti
+            const rcx = CANVAS_W / 2, rcy = CANVAS_H / 2;
+
+            // Cycling rainbow screen tint
+            const rainbowHue = (progress * 360 + state.time * 60) % 360;
+            ctx.globalAlpha = alpha * 0.18;
+            ctx.fillStyle = 'hsl(' + rainbowHue + ', 90%, 60%)';
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+            ctx.globalAlpha = 1;
+
+            // Rainbow arc sweeping across the screen
+            const arcY = CANVAS_H * 0.4;
+            const arcR = CANVAS_W * 0.7;
+            for (let band = 0; band < 7; band++) {
+              const bandHue = (band / 7) * 300;
+              const bandR = arcR + band * 8;
+              const arcStart = -Math.PI * 0.8 + progress * Math.PI * 0.1;
+              const arcEnd = Math.PI * -0.2 + progress * Math.PI * 0.7;
+              ctx.globalAlpha = alpha * 0.7;
+              ctx.strokeStyle = 'hsl(' + bandHue + ', 100%, 55%)';
+              ctx.lineWidth = 9;
+              ctx.lineCap = 'round';
+              ctx.beginPath();
+              ctx.arc(rcx, arcY + arcR, bandR, arcStart, arcEnd);
+              ctx.stroke();
+            }
+            ctx.lineCap = 'butt';
+            ctx.globalAlpha = 1;
+
+            // Multiple expanding shockwave rings, each a different color
+            for (let rw = 0; rw < 5; rw++) {
+              const rwP = (progress + rw * 0.2) % 1;
+              const rwR = rwP * Math.max(CANVAS_W, CANVAS_H) * 0.75;
+              const rwHue = (rw * 60) % 360;
+              ctx.globalAlpha = (1 - rwP) * alpha * 0.65;
+              ctx.strokeStyle = 'hsl(' + rwHue + ', 100%, 60%)';
+              ctx.lineWidth = 5;
+              ctx.beginPath();
+              ctx.arc(rcx, rcy, rwR, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+
+            // Prismatic beams in 8 directions
+            for (let beam = 0; beam < 8; beam++) {
+              const beamAngle = (beam / 8) * Math.PI * 2 + state.time;
+              const beamLen = progress * Math.max(CANVAS_W, CANVAS_H) * 0.9;
+              const bHue = (beam * 45 + state.time * 80) % 360;
+              ctx.globalAlpha = alpha * 0.45;
+              ctx.strokeStyle = 'hsl(' + bHue + ', 100%, 65%)';
+              ctx.lineWidth = 5;
+              ctx.lineCap = 'round';
+              ctx.beginPath();
+              ctx.moveTo(rcx, rcy);
+              ctx.lineTo(rcx + Math.cos(beamAngle) * beamLen, rcy + Math.sin(beamAngle) * beamLen);
+              ctx.stroke();
+            }
+            ctx.lineCap = 'butt';
+
+            // Rainbow confetti everywhere
+            ctx.textAlign = 'center';
+            for (let cf = 0; cf < 50; cf++) {
+              const cfx = ((cf * 127.4 + 20) % CANVAS_W);
+              const cfDrop = (progress * 1.2 + cf * 0.02) % 1;
+              const cfy = cfDrop * (CANVAS_H + 20) - 10;
+              if (cfy < 0) continue;
+              const cfHue = (cf * 7.2) % 360;
+              ctx.globalAlpha = alpha * 0.8 * (1 - cfDrop * 0.3);
+              ctx.fillStyle = 'hsl(' + cfHue + ', 100%, 65%)';
+              ctx.font = (8 + cf % 5) + 'px serif';
+              const shapes = ['\u25A0', '\u25CF', '\u2605', '\u2666'];
+              ctx.fillText(shapes[cf % 4], cfx, cfy);
+            }
+            ctx.globalAlpha = 1;
             break;
           }
         }
+      }
+
+      // Combo counter display
+      const combo = state.battle.combo;
+      if (combo.count >= 2 && combo.displayTimer > 0) {
+        const comboAlpha = Math.min(1, combo.displayTimer * 2);
+        const scale = 1 + Math.min(combo.count * 0.08, 0.6);
+        const comboY = CANVAS_H / 2 - 60;
+        ctx.save();
+        ctx.globalAlpha = comboAlpha;
+        ctx.textAlign = 'center';
+        // Shadow/outline
+        ctx.font = 'bold ' + Math.floor(28 * scale) + 'px monospace';
+        ctx.fillStyle = '#000';
+        ctx.fillText('x' + combo.count + ' COMBO!', CANVAS_W / 2 + 2, comboY + 2);
+        // Main text color cycles with combo size
+        const comboHue = (combo.count * 25) % 360;
+        ctx.fillStyle = 'hsl(' + comboHue + ', 100%, 65%)';
+        ctx.fillText('x' + combo.count + ' COMBO!', CANVAS_W / 2, comboY);
+        // Extra sparkles around combo text for big combos
+        if (combo.count >= 5) {
+          ctx.font = '14px serif';
+          for (let cs = 0; cs < 6; cs++) {
+            const csA = (cs / 6) * Math.PI * 2 + state.time * 3;
+            const csr = 38 + combo.count * 2;
+            ctx.fillStyle = 'hsl(' + ((comboHue + cs * 60) % 360) + ', 100%, 70%)';
+            ctx.fillText('\u2605', CANVAS_W / 2 + Math.cos(csA) * csr, comboY + Math.sin(csA) * 14);
+          }
+        }
+        ctx.restore();
       }
     }
 
@@ -4113,14 +4581,16 @@
             e.hp -= 3;
             if (e.hp <= 0) { e.curing = true; e.cureTimer = 0; }
           }
-          state.battle.effects.push({ x: 0, y: 0, type: 'flameWave', timer: 1.0, maxTimer: 1.0 });
+          triggerScreenShake(8, 0.5);
+          state.battle.effects.push({ x: 0, y: 0, type: 'flameWave', timer: 2.0, maxTimer: 2.0, playerX: b.x });
           break;
         }
         case 'ice': {
           // Freeze Blast: freeze all enemies for 3 seconds
           state.battle.superActive[playerIdx] = { type: 'freeze', timer: 3 };
           for (const e of enemies) { if (!e.curing) e.frozen = 3; }
-          state.battle.effects.push({ x: 0, y: 0, type: 'freezeBlast', timer: 1.2, maxTimer: 1.2 });
+          triggerScreenShake(6, 0.4);
+          state.battle.effects.push({ x: b.x, y: BATTLE_PLAYER_Y, type: 'freezeBlast', timer: 2.0, maxTimer: 2.0 });
           break;
         }
         case 'nature': {
@@ -4132,7 +4602,8 @@
             if (e.hp <= 0) { e.curing = true; e.cureTimer = 0; }
           }
           state.battle.superActive[playerIdx] = { type: 'vines', timer: 2 };
-          state.battle.effects.push({ x: 0, y: 0, type: 'vineBurst', timer: 1.0, maxTimer: 1.0 });
+          triggerScreenShake(6, 0.4);
+          state.battle.effects.push({ x: 0, y: 0, type: 'vineBurst', timer: 2.0, maxTimer: 2.0 });
           break;
         }
         case 'love': {
@@ -4143,13 +4614,15 @@
           for (const e of enemies) {
             if (!e.curing) { e.curing = true; e.cureTimer = 0; }
           }
-          state.battle.effects.push({ x: 0, y: 0, type: 'healWave', timer: 1.5, maxTimer: 1.5 });
+          triggerScreenShake(5, 0.3);
+          state.battle.effects.push({ x: 0, y: 0, type: 'healWave', timer: 2.0, maxTimer: 2.0 });
           break;
         }
         case 'shadow': {
           // Shadow Cloak: invincible for 5 seconds
           b.invTimer = 5;
-          state.battle.effects.push({ x: b.x, y: BATTLE_PLAYER_Y, type: 'shadowCloak', timer: 1.0, maxTimer: 1.0 });
+          triggerScreenShake(7, 0.4);
+          state.battle.effects.push({ x: b.x, y: BATTLE_PLAYER_Y, type: 'shadowCloak', timer: 2.0, maxTimer: 2.0 });
           break;
         }
         case 'star': {
@@ -4157,7 +4630,8 @@
           for (const e of enemies) {
             if (!e.curing) { e.curing = true; e.cureTimer = 0; }
           }
-          state.battle.effects.push({ x: 0, y: 0, type: 'supernova', timer: 1.5, maxTimer: 1.5 });
+          triggerScreenShake(12, 0.6);
+          state.battle.effects.push({ x: 0, y: 0, type: 'supernova', timer: 2.0, maxTimer: 2.0 });
           break;
         }
         case 'rainbow': {
@@ -4170,7 +4644,8 @@
               e.cureTimer = 0;
             }
           }
-          state.battle.effects.push({ x: 0, y: 0, type: 'rainbowWave', timer: 1.5, maxTimer: 1.5 });
+          triggerScreenShake(8, 0.5);
+          state.battle.effects.push({ x: 0, y: 0, type: 'rainbowWave', timer: 2.0, maxTimer: 2.0 });
           break;
         }
       }
@@ -4185,6 +4660,18 @@
             state.battle.superActive[i] = null;
           }
         }
+      }
+      // Combo counter decay
+      const combo = state.battle.combo;
+      if (combo.count > 0) {
+        combo.timer -= dt;
+        if (combo.timer <= 0) {
+          combo.count = 0;
+          combo.timer = 0;
+        }
+      }
+      if (combo.displayTimer > 0) {
+        combo.displayTimer -= dt;
       }
     }
 
