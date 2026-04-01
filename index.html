@@ -2,17 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Dragon Egg Island</title>
   <style>
-    body {
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
       margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #1a1a2e;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: none;
+    }
+
+    #canvas-wrapper {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
-      overflow: hidden;
-      background: #1a1a2e;
     }
 
     canvas {
@@ -20,11 +38,149 @@
       image-rendering: pixelated;
       image-rendering: crisp-edges;
       border: 3px solid #444;
+      transform-origin: center center;
+    }
+
+    /* D-pad container */
+    .dpad {
+      position: fixed;
+      display: none; /* hidden by default; shown via JS when touch detected */
+      width: 180px;
+      height: 180px;
+      grid-template-columns: 60px 60px 60px;
+      grid-template-rows: 60px 60px 60px;
+      z-index: 100;
+      touch-action: none;
+    }
+
+    .dpad.visible {
+      display: grid;
+    }
+
+    #dpad-left {
+      bottom: 20px;
+      left: 20px;
+    }
+
+    #dpad-right {
+      bottom: 20px;
+      right: 20px;
+    }
+
+    .dpad-btn {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 22px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: opacity 0.08s;
+      opacity: 0.75;
+    }
+
+    .dpad-btn:active, .dpad-btn.pressed {
+      opacity: 1;
+    }
+
+    #dpad-left .dpad-btn {
+      background: rgba(135, 206, 235, 0.55);
+      color: #fff;
+    }
+
+    #dpad-right .dpad-btn {
+      background: rgba(155, 89, 182, 0.55);
+      color: #fff;
+    }
+
+    .dpad-up    { grid-column: 2; grid-row: 1; }
+    .dpad-left  { grid-column: 1; grid-row: 2; }
+    .dpad-center { grid-column: 2; grid-row: 2; display: flex; justify-content: center; align-items: center; font-size: 10px; font-weight: bold; font-family: monospace; }
+    .dpad-right { grid-column: 3; grid-row: 2; }
+    .dpad-down  { grid-column: 2; grid-row: 3; }
+
+    #dpad-left .dpad-center {
+      color: #87CEEB;
+    }
+
+    #dpad-right .dpad-center {
+      color: #9B59B6;
+    }
+
+    /* Title screen touch buttons */
+    #title-touch-btns {
+      position: fixed;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      z-index: 100;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      touch-action: none;
+    }
+
+    #title-touch-btns.visible {
+      display: flex;
+    }
+
+    .title-touch-btn {
+      padding: 14px 40px;
+      font-size: 18px;
+      font-family: monospace;
+      font-weight: bold;
+      border: 2px solid #FFD700;
+      border-radius: 10px;
+      background: rgba(26, 26, 46, 0.85);
+      color: #FFD700;
+      cursor: pointer;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      min-width: 200px;
+      text-align: center;
+    }
+
+    .title-touch-btn:active {
+      background: rgba(255, 215, 0, 0.25);
     }
   </style>
 </head>
 <body>
-  <canvas id="game" width="800" height="600"></canvas>
+  <div id="canvas-wrapper">
+    <canvas id="game" width="800" height="600"></canvas>
+  </div>
+
+  <!-- Left d-pad: Harper (Arrow keys) -->
+  <div id="dpad-left" class="dpad">
+    <button class="dpad-btn dpad-up"    data-key="ArrowUp">▲</button>
+    <button class="dpad-btn dpad-left"  data-key="ArrowLeft">◄</button>
+    <div class="dpad-center">Harper</div>
+    <button class="dpad-btn dpad-right" data-key="ArrowRight">►</button>
+    <button class="dpad-btn dpad-down"  data-key="ArrowDown">▼</button>
+  </div>
+
+  <!-- Right d-pad: Audrey (WASD keys) -->
+  <div id="dpad-right" class="dpad">
+    <button class="dpad-btn dpad-up"    data-key="w">▲</button>
+    <button class="dpad-btn dpad-left"  data-key="a">◄</button>
+    <div class="dpad-center">Audrey</div>
+    <button class="dpad-btn dpad-right" data-key="d">►</button>
+    <button class="dpad-btn dpad-down"  data-key="s">▼</button>
+  </div>
+
+  <!-- Title screen touch buttons (only visible on title screen + touch) -->
+  <div id="title-touch-btns">
+    <button class="title-touch-btn" id="btn-adventure">Adventure</button>
+    <button class="title-touch-btn" id="btn-freeplay">Free Play</button>
+  </div>
 
   <script>
     // ============================================================
@@ -898,10 +1054,97 @@
     }
 
     // ============================================================
-    // CANVAS SETUP
+    // CANVAS SETUP & SCALING
     // ============================================================
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
+
+    function scaleCanvas() {
+      const scaleX = window.innerWidth  / CANVAS_W;
+      const scaleY = window.innerHeight / CANVAS_H;
+      const scale  = Math.min(scaleX, scaleY);
+      canvas.style.transform = `scale(${scale})`;
+    }
+
+    window.addEventListener('resize', scaleCanvas);
+    scaleCanvas();
+
+    // ============================================================
+    // TOUCH SUPPORT
+    // ============================================================
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+    if (isTouchDevice) {
+      // Show d-pads
+      document.getElementById('dpad-left').classList.add('visible');
+      document.getElementById('dpad-right').classList.add('visible');
+      // Title buttons start hidden; shown by updateTitleTouchUI()
+    }
+
+    // Wire each d-pad button: touchstart sets key true, touchend sets false.
+    // We attach listeners to each button individually so multi-touch works.
+    document.querySelectorAll('.dpad-btn').forEach(function(btn) {
+      const key = btn.getAttribute('data-key');
+
+      btn.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        keys[key] = true;
+        btn.classList.add('pressed');
+      }, { passive: false });
+
+      btn.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        keys[key] = false;
+        btn.classList.remove('pressed');
+      }, { passive: false });
+
+      btn.addEventListener('touchcancel', function(e) {
+        e.preventDefault();
+        keys[key] = false;
+        btn.classList.remove('pressed');
+      }, { passive: false });
+    });
+
+    // Title screen touch buttons
+    const titleTouchBtns = document.getElementById('title-touch-btns');
+
+    function updateTitleTouchUI() {
+      if (!isTouchDevice) return;
+      if (state.screen === 'title') {
+        titleTouchBtns.classList.add('visible');
+        document.getElementById('dpad-left').classList.remove('visible');
+        document.getElementById('dpad-right').classList.remove('visible');
+      } else {
+        titleTouchBtns.classList.remove('visible');
+        document.getElementById('dpad-left').classList.add('visible');
+        document.getElementById('dpad-right').classList.add('visible');
+      }
+    }
+
+    document.getElementById('btn-adventure').addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      startGame('adventure');
+      updateTitleTouchUI();
+    }, { passive: false });
+
+    document.getElementById('btn-freeplay').addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      startGame('freeplay');
+      updateTitleTouchUI();
+    }, { passive: false });
+
+    // Also handle click for non-touch devices testing
+    document.getElementById('btn-adventure').addEventListener('click', function() {
+      startGame('adventure');
+      updateTitleTouchUI();
+    });
+    document.getElementById('btn-freeplay').addEventListener('click', function() {
+      startGame('freeplay');
+      updateTitleTouchUI();
+    });
+
+    // Show title touch UI on load if on touch device
+    updateTitleTouchUI();
 
     // ============================================================
     // GAME LOOP
