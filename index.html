@@ -1215,12 +1215,13 @@
       waveTimer: 0,
       playerDragons: [null, null],
       battlePlayers: [
-        { x: CANVAS_W / 2 - 40, hearts: 5, superMeter: 0, shotTimer: 0, respawnTimer: 0, invTimer: 0, shieldActive: false, speedBoost: 0, alive: true },
-        { x: CANVAS_W / 2 + 40, hearts: 5, superMeter: 0, shotTimer: 0, respawnTimer: 0, invTimer: 0, shieldActive: false, speedBoost: 0, alive: true },
+        { x: CANVAS_W / 2 - 40, hearts: 5, superMeter: 0, shotTimer: 0, respawnTimer: 0, invTimer: 0, shieldActive: false, speedBoost: 0, alive: true, tripleShot: 0, giantShot: 0, rapidFire: 0, magnet: 0, timeSlow: 0, starShield: 0, giantDragon: 0, clone: 0, rainbowTrail: 0, trailPoints: [] },
+        { x: CANVAS_W / 2 + 40, hearts: 5, superMeter: 0, shotTimer: 0, respawnTimer: 0, invTimer: 0, shieldActive: false, speedBoost: 0, alive: true, tripleShot: 0, giantShot: 0, rapidFire: 0, magnet: 0, timeSlow: 0, starShield: 0, giantDragon: 0, clone: 0, rainbowTrail: 0, trailPoints: [] },
       ],
       hitStreak: [0, 0],
       superActive: [null, null],
       combo: { count: 0, timer: 0, displayTimer: 0 },
+      friendBeam: 0,
     };
     state.dragonSelectPlayer = 0;
     state.dragonSelectIndex = 0;
@@ -2487,10 +2488,20 @@
     const SUPER_METER_MAX = 100;
 
     const DROP_TYPES = {
-      heart:      { color: '#FF5252', chance: 0.30, symbol: '\u2665' },
-      superBoost: { color: '#FFD700', chance: 0.15, symbol: '\u2605' },
-      speedStar:  { color: '#00E5FF', chance: 0.10, symbol: '\u2736' },
-      shield:     { color: '#69F0AE', chance: 0.10, symbol: '\u25CE' },
+      heart:        { color: '#FF5252', chance: 0.25, symbol: '\u2665' },
+      superBoost:   { color: '#FFD700', chance: 0.10, symbol: '\u2605' },
+      speedStar:    { color: '#00E5FF', chance: 0.06, symbol: '\u2736' },
+      shield:       { color: '#69F0AE', chance: 0.06, symbol: '\u25CE' },
+      tripleShot:   { color: '#FF9800', chance: 0.06, symbol: '\u22EE' },
+      giantShot:    { color: '#E040FB', chance: 0.05, symbol: '\u25CF' },
+      rapidFire:    { color: '#00E676', chance: 0.06, symbol: '\u26A1' },
+      magnet:       { color: '#FFEB3B', chance: 0.05, symbol: '\u2295' },
+      timeSlow:     { color: '#81D4FA', chance: 0.04, symbol: '\u25F7' },
+      starShield:   { color: '#FFD700', chance: 0.04, symbol: '\u2606' },
+      giantDragon:  { color: '#FF5722', chance: 0.04, symbol: '\u25B2' },
+      clone:        { color: '#CE93D8', chance: 0.04, symbol: '\u229E' },
+      rainbowTrail: { color: '#FF6B6B', chance: 0.04, symbol: '~' },
+      friendBeam:   { color: '#F48FB1', chance: 0.03, symbol: '\u221E' },
     };
 
     // ============================================================
@@ -2969,6 +2980,7 @@
       state.battle.hitStreak = [0, 0];
       state.battle.superActive = [null, null];
 
+      state.battle.friendBeam = 0;
       for (let i = 0; i < 2; i++) {
         state.battle.battlePlayers[i].hearts = MAX_HEARTS;
         state.battle.battlePlayers[i].superMeter = 0;
@@ -2978,6 +2990,16 @@
         state.battle.battlePlayers[i].shieldActive = false;
         state.battle.battlePlayers[i].speedBoost = 0;
         state.battle.battlePlayers[i].alive = true;
+        state.battle.battlePlayers[i].tripleShot = 0;
+        state.battle.battlePlayers[i].giantShot = 0;
+        state.battle.battlePlayers[i].rapidFire = 0;
+        state.battle.battlePlayers[i].magnet = 0;
+        state.battle.battlePlayers[i].timeSlow = 0;
+        state.battle.battlePlayers[i].starShield = 0;
+        state.battle.battlePlayers[i].giantDragon = 0;
+        state.battle.battlePlayers[i].clone = 0;
+        state.battle.battlePlayers[i].rainbowTrail = 0;
+        state.battle.battlePlayers[i].trailPoints = [];
       }
 
       if (state.activePlayerCount === 1) {
@@ -3031,6 +3053,24 @@
         if (b.invTimer > 0) b.invTimer -= dt;
         if (b.speedBoost > 0) b.speedBoost -= dt;
 
+        // Decrement new power-up timers
+        const powerUpTimers = ['tripleShot', 'giantShot', 'rapidFire', 'magnet', 'timeSlow', 'starShield', 'giantDragon', 'clone', 'rainbowTrail'];
+        for (const t of powerUpTimers) {
+          if (b[t] > 0) b[t] -= dt;
+        }
+        if (state.battle.friendBeam > 0) state.battle.friendBeam -= dt;
+
+        // Rainbow trail: add trail points
+        if (b.rainbowTrail > 0) {
+          b.trailPoints.push({ x: b.x, y: BATTLE_PLAYER_Y, timer: 1.0 });
+          if (b.trailPoints.length > 30) b.trailPoints.shift();
+        }
+        // Decrement trail point timers
+        for (let tp = b.trailPoints.length - 1; tp >= 0; tp--) {
+          b.trailPoints[tp].timer -= dt;
+          if (b.trailPoints[tp].timer <= 0) b.trailPoints.splice(tp, 1);
+        }
+
         let dx = 0;
         const dragSide = (pi === 0) ? 'left' : 'right';
 
@@ -3068,47 +3108,67 @@
         if (dragonKey && b.shotTimer <= 0) {
           const cfg = DRAGON_CONFIGS[dragonKey];
           const waveBonus = 1 + Math.min(state.battle.wave * 0.02, 1.0);
-          b.shotTimer = 1 / (cfg.shotRate * waveBonus);
-          spawnShots(i, b.x, BATTLE_PLAYER_Y, cfg);
+          const rateMultiplier = (b.rapidFire > 0 ? 2 : 1) * waveBonus;
+          b.shotTimer = 1 / (cfg.shotRate * rateMultiplier);
+          spawnShots(i, b.x, BATTLE_PLAYER_Y, cfg, b.giantShot > 0);
+
+          // Triple shot: spawn two extra offset shots
+          if (b.tripleShot > 0) {
+            spawnShots(i, b.x - 12, BATTLE_PLAYER_Y, cfg, b.giantShot > 0);
+            spawnShots(i, b.x + 12, BATTLE_PLAYER_Y, cfg, b.giantShot > 0);
+          }
+
+          // Clone: mirror shots from the other side
+          if (b.clone > 0) {
+            spawnShots(i, CANVAS_W - b.x, BATTLE_PLAYER_Y, cfg, b.giantShot > 0);
+          }
         }
       }
     }
 
-    function spawnShots(playerId, x, y, config) {
+    function spawnShots(playerId, x, y, config, isGiant) {
       const shots = state.battle.shots;
       const spd = config.shotSpeed;
       const col = config.color;
+      const g = isGiant || false;
 
       switch (config.shotType) {
         case 'single':
-          shots.push({ x: x, y: y, vx: 0, vy: -spd, color: col, owner: playerId });
+          shots.push({ x: x, y: y, vx: 0, vy: -spd, color: col, owner: playerId, giant: g });
           break;
         case 'spread':
-          shots.push({ x: x, y: y, vx: -spd * 0.25, vy: -spd, color: col, owner: playerId });
-          shots.push({ x: x, y: y, vx: 0, vy: -spd, color: col, owner: playerId });
-          shots.push({ x: x, y: y, vx: spd * 0.25, vy: -spd, color: col, owner: playerId });
+          shots.push({ x: x, y: y, vx: -spd * 0.25, vy: -spd, color: col, owner: playerId, giant: g });
+          shots.push({ x: x, y: y, vx: 0, vy: -spd, color: col, owner: playerId, giant: g });
+          shots.push({ x: x, y: y, vx: spd * 0.25, vy: -spd, color: col, owner: playerId, giant: g });
           break;
         case 'pierce':
-          shots.push({ x: x, y: y, vx: 0, vy: -spd, color: col, owner: playerId, pierce: true });
+          shots.push({ x: x, y: y, vx: 0, vy: -spd, color: col, owner: playerId, pierce: true, giant: g });
           break;
         case 'wide':
-          shots.push({ x: x, y: y, vx: 0, vy: -spd, color: col, owner: playerId, wide: true });
+          shots.push({ x: x, y: y, vx: 0, vy: -spd, color: col, owner: playerId, wide: true, giant: g });
           break;
         case 'bounce':
-          shots.push({ x: x, y: y, vx: spd * 0.15, vy: -spd, color: col, owner: playerId, bounces: 2 });
+          shots.push({ x: x, y: y, vx: spd * 0.15, vy: -spd, color: col, owner: playerId, bounces: 2, giant: g });
           break;
         case 'beam':
-          shots.push({ x: x, y: y, vx: 0, vy: -spd, color: col, owner: playerId, pierce: true, beam: true });
+          shots.push({ x: x, y: y, vx: 0, vy: -spd, color: col, owner: playerId, pierce: true, beam: true, giant: g });
           break;
       }
     }
 
     function updateShots(dt) {
+      // Check if any player has timeSlow active
+      let anyTimeSlow = false;
+      for (let p = 0; p < state.activePlayerCount; p++) {
+        if (state.battle.battlePlayers[p].timeSlow > 0) { anyTimeSlow = true; break; }
+      }
+
       const shots = state.battle.shots;
       for (let i = shots.length - 1; i >= 0; i--) {
         const s = shots[i];
-        s.x += s.vx * dt;
-        s.y += s.vy * dt;
+        const shotDt = (s.isEnemy && anyTimeSlow) ? dt * 0.3 : dt;
+        s.x += s.vx * shotDt;
+        s.y += s.vy * shotDt;
 
         // Bounce shots bounce off left/right edges
         if (s.bounces !== undefined && s.bounces > 0) {
@@ -3257,6 +3317,13 @@
     }
 
     function updateEnemies(dt) {
+      // Check if any player has timeSlow active
+      let anyTimeSlow = false;
+      for (let p = 0; p < state.activePlayerCount; p++) {
+        if (state.battle.battlePlayers[p].timeSlow > 0) { anyTimeSlow = true; break; }
+      }
+      const eDt = anyTimeSlow ? dt * 0.3 : dt;
+
       const enemies = state.battle.enemies;
       for (let i = enemies.length - 1; i >= 0; i--) {
         const e = enemies[i];
@@ -3309,35 +3376,35 @@
         // Movement patterns
         switch (e.pattern) {
           case 'straight':
-            e.y += e.speed * dt;
+            e.y += e.speed * eDt;
             break;
           case 'wobble':
-            e.y += e.speed * dt;
-            e.x += Math.sin(age * 3) * 30 * dt;
+            e.y += e.speed * eDt;
+            e.x += Math.sin(age * 3) * 30 * eDt;
             break;
           case 'zigzag':
-            e.y += e.speed * dt;
-            e.x += Math.sin(age * 2) * 80 * dt;
+            e.y += e.speed * eDt;
+            e.x += Math.sin(age * 2) * 80 * eDt;
             break;
           case 'bounce':
-            e.y += e.speed * dt;
-            e.x += Math.cos(age * 2.5) * 50 * dt;
+            e.y += e.speed * eDt;
+            e.x += Math.cos(age * 2.5) * 50 * eDt;
             e.x = Math.max(e.size, Math.min(CANVAS_W - e.size, e.x));
             break;
           case 'swoop':
-            e.y += e.speed * dt * Math.max(0.3, 1 - age * 0.1);
-            e.x += Math.sin(age * 1.5) * 60 * dt;
+            e.y += e.speed * eDt * Math.max(0.3, 1 - age * 0.1);
+            e.x += Math.sin(age * 1.5) * 60 * eDt;
             break;
           case 'formation':
-            e.y += e.speed * dt;
-            e.x += Math.sin(age * 2 + i * 0.5) * 40 * dt;
+            e.y += e.speed * eDt;
+            e.x += Math.sin(age * 2 + i * 0.5) * 40 * eDt;
             break;
           case 'boss':
             if (e.y < 80) {
-              e.y += e.speed * dt;
+              e.y += e.speed * eDt;
             } else {
               e.y = 80;
-              e.x += Math.sin(age * 0.8) * 100 * dt;
+              e.x += Math.sin(age * 0.8) * 100 * eDt;
               e.x = Math.max(e.size, Math.min(CANVAS_W - e.size, e.x));
             }
             break;
@@ -3345,7 +3412,7 @@
 
         // Storm clouds shoot
         if (e.shoots) {
-          e.shootTimer -= dt;
+          e.shootTimer -= eDt;
           if (e.shootTimer <= 0) {
             e.shootTimer = 3;
             state.battle.shots.push({
@@ -3367,7 +3434,7 @@
           }
           const shootInterval = enraged ? 1.5 : 2.5;
           if (!e.shootTimer) e.shootTimer = shootInterval;
-          e.shootTimer -= dt;
+          e.shootTimer -= eDt;
           if (e.shootTimer <= 0) {
             e.shootTimer = shootInterval;
             if (enraged) {
@@ -3397,7 +3464,10 @@
       for (let si = shots.length - 1; si >= 0; si--) {
         const s = shots[si];
         if (s.isEnemy) continue;
-        const sw = s.wide ? 16 : 6;
+        const giantMult = s.giant ? 3 : 1;
+        const sw = (s.wide ? 16 : 6) * giantMult;
+        const sh = 4 * giantMult;
+        const dmg = s.giant ? 2 : 1;
 
         for (let ei = enemies.length - 1; ei >= 0; ei--) {
           const e = enemies[ei];
@@ -3406,8 +3476,8 @@
 
           // Rectangle overlap
           if (s.x - sw / 2 < e.x + es && s.x + sw / 2 > e.x - es &&
-              s.y - 4 < e.y + es && s.y + 4 > e.y - es) {
-            e.hp--;
+              s.y - sh < e.y + es && s.y + sh > e.y - es) {
+            e.hp -= dmg;
             state.battle.effects.push({ x: s.x, y: s.y, type: 'hit', timer: 0.3, maxTimer: 0.3 });
 
             if (e.hp <= 0) {
@@ -3455,7 +3525,7 @@
 
         const px = b.x;
         const py = BATTLE_PLAYER_Y;
-        const pr = 14; // player radius
+        const pr = b.giantDragon > 0 ? 28 : 14; // player radius (bigger when giant)
 
         // Check enemies
         for (const e of enemies) {
@@ -3478,6 +3548,65 @@
             shots.splice(si, 1);
             break;
           }
+        }
+      }
+
+      // 3. Star Shield orbiting stars vs enemies
+      for (let pi = 0; pi < state.activePlayerCount; pi++) {
+        const b = bp[pi];
+        if (!b.alive || b.starShield <= 0) continue;
+        for (let s = 0; s < 3; s++) {
+          const angle = state.time * 4 + (s * Math.PI * 2 / 3);
+          const sx = b.x + Math.cos(angle) * 25;
+          const sy = BATTLE_PLAYER_Y + Math.sin(angle) * 25;
+          for (const e of enemies) {
+            if (e.curing) continue;
+            const es = e.size / 2;
+            if (Math.abs(sx - e.x) < es + 8 && Math.abs(sy - e.y) < es + 8) {
+              e.hp--;
+              state.battle.effects.push({ x: sx, y: sy, type: 'hit', timer: 0.3, maxTimer: 0.3 });
+              if (e.hp <= 0) { e.curing = true; e.cureTimer = 0; }
+            }
+          }
+        }
+      }
+
+      // 4. Rainbow trail vs enemies
+      for (let pi = 0; pi < state.activePlayerCount; pi++) {
+        const b = bp[pi];
+        if (!b.alive) continue;
+        for (const tp of b.trailPoints) {
+          for (const e of enemies) {
+            if (e.curing) continue;
+            const es = e.size / 2;
+            if (Math.abs(tp.x - e.x) < es + 6 && Math.abs(tp.y - e.y) < es + 6) {
+              e.hp--;
+              state.battle.effects.push({ x: tp.x, y: tp.y, type: 'hit', timer: 0.3, maxTimer: 0.3 });
+              if (e.hp <= 0) { e.curing = true; e.cureTimer = 0; }
+              tp.timer = 0; // consume trail point on hit
+              break;
+            }
+          }
+        }
+      }
+
+      // 5. Friendship Beam vs enemies (2-player only)
+      if (state.battle.friendBeam > 0 && state.activePlayerCount === 2 && bp[0].alive && bp[1].alive) {
+        const ax = bp[0].x, ay = BATTLE_PLAYER_Y;
+        const bx = bp[1].x, by = BATTLE_PLAYER_Y;
+        for (const e of enemies) {
+          if (e.curing) continue;
+          // Point-to-line distance (beam is horizontal since both at same Y)
+          const minX = Math.min(ax, bx), maxX = Math.max(ax, bx);
+          if (e.x >= minX - 10 && e.x <= maxX + 10 && Math.abs(e.y - ay) < 15 + e.size / 2) {
+            if (!e.beamHitTimer || e.beamHitTimer <= 0) {
+              e.hp--;
+              e.beamHitTimer = 0.2;
+              state.battle.effects.push({ x: e.x, y: e.y, type: 'hit', timer: 0.3, maxTimer: 0.3 });
+              if (e.hp <= 0) { e.curing = true; e.cureTimer = 0; }
+            }
+          }
+          if (e.beamHitTimer > 0) e.beamHitTimer -= 0.016;
         }
       }
     }
@@ -3585,8 +3714,78 @@
           ctx.stroke();
         }
 
-        // Dragon sprite
-        drawSprite(DRAGON_SPRITES[dragonKey], b.x - 18, BATTLE_PLAYER_Y - 18, 36);
+        // Rainbow trail points
+        for (const tp of b.trailPoints) {
+          const hue = (tp.timer * 360 + state.time * 200) % 360;
+          ctx.globalAlpha = tp.timer * 0.6;
+          ctx.fillStyle = 'hsl(' + hue + ', 90%, 60%)';
+          ctx.beginPath();
+          ctx.arc(tp.x, tp.y, 5 * tp.timer, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+
+        // Giant dragon: draw larger sprite
+        if (b.giantDragon > 0) {
+          drawSprite(DRAGON_SPRITES[dragonKey], b.x - 36, BATTLE_PLAYER_Y - 36, 72);
+        } else {
+          // Dragon sprite (normal)
+          drawSprite(DRAGON_SPRITES[dragonKey], b.x - 18, BATTLE_PLAYER_Y - 18, 36);
+        }
+
+        // Star Shield orbiting stars
+        if (b.starShield > 0) {
+          for (let s = 0; s < 3; s++) {
+            const angle = state.time * 4 + (s * Math.PI * 2 / 3);
+            const sx = b.x + Math.cos(angle) * 25;
+            const sy = BATTLE_PLAYER_Y + Math.sin(angle) * 25;
+            ctx.fillStyle = '#FFD700';
+            ctx.font = '14px serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('\u2605', sx, sy + 5);
+          }
+        }
+
+        // Clone: draw ghost dragon on mirrored side
+        if (b.clone > 0) {
+          ctx.globalAlpha = 0.6;
+          const cx = CANVAS_W - b.x;
+          if (b.giantDragon > 0) {
+            drawSprite(DRAGON_SPRITES[dragonKey], cx - 36, BATTLE_PLAYER_Y - 36, 72);
+          } else {
+            drawSprite(DRAGON_SPRITES[dragonKey], cx - 18, BATTLE_PLAYER_Y - 18, 36);
+          }
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // Friendship Beam: glowing line between both dragons
+      if (state.battle.friendBeam > 0 && state.activePlayerCount === 2) {
+        const b0 = state.battle.battlePlayers[0];
+        const b1 = state.battle.battlePlayers[1];
+        if (b0.alive && b1.alive) {
+          const hue = (state.time * 200) % 360;
+          ctx.strokeStyle = 'hsl(' + hue + ', 90%, 70%)';
+          ctx.lineWidth = 6;
+          ctx.globalAlpha = 0.7 + Math.sin(state.time * 8) * 0.2;
+          ctx.beginPath();
+          ctx.moveTo(b0.x, BATTLE_PLAYER_Y);
+          ctx.lineTo(b1.x, BATTLE_PLAYER_Y);
+          ctx.stroke();
+          // Particles along the beam
+          const beamLen = Math.abs(b1.x - b0.x);
+          const minX = Math.min(b0.x, b1.x);
+          for (let p = 0; p < 8; p++) {
+            const px = minX + ((p / 8 + state.time * 0.5) % 1) * beamLen;
+            const py = BATTLE_PLAYER_Y + Math.sin(state.time * 10 + p) * 5;
+            ctx.fillStyle = 'hsl(' + ((hue + p * 30) % 360) + ', 100%, 80%)';
+            ctx.beginPath();
+            ctx.arc(px, py, 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+          ctx.lineWidth = 1;
+        }
       }
     }
 
@@ -3601,25 +3800,34 @@
           continue;
         }
 
+        const gMult = s.giant ? 3 : 1;
         if (s.beam) {
           ctx.fillStyle = s.color;
-          ctx.fillRect(s.x - 2, s.y - 8, 4, 16);
+          ctx.fillRect(s.x - 2 * gMult, s.y - 8 * gMult, 4 * gMult, 16 * gMult);
         } else if (s.wide) {
           ctx.fillStyle = s.color;
-          ctx.font = '14px serif';
+          ctx.font = (14 * gMult) + 'px serif';
           ctx.textAlign = 'center';
           ctx.fillText('\u2665', s.x, s.y + 4);
         } else {
           // Trail
           ctx.fillStyle = s.color + '44';
           ctx.beginPath();
-          ctx.arc(s.x, s.y + 6, 3, 0, Math.PI * 2);
+          ctx.arc(s.x, s.y + 6, 3 * gMult, 0, Math.PI * 2);
           ctx.fill();
           // Main dot
           ctx.fillStyle = s.color;
           ctx.beginPath();
-          ctx.arc(s.x, s.y, 3, 0, Math.PI * 2);
+          ctx.arc(s.x, s.y, 3 * gMult, 0, Math.PI * 2);
           ctx.fill();
+          // Giant glow
+          if (s.giant) {
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+          }
         }
       }
     }
@@ -3826,10 +4034,12 @@
         if (dKey === 'heart') chance += heartBoost;
         cumulative += chance;
         if (roll < cumulative) {
+          // friendBeam only works in 2-player mode; reroll to heart otherwise
+          const finalKey = (dKey === 'friendBeam' && state.activePlayerCount !== 2) ? 'heart' : dKey;
           state.battle.drops.push({
-            type: dKey, x: x, y: y, vy: 40,
-            color: DROP_TYPES[dKey].color,
-            symbol: DROP_TYPES[dKey].symbol,
+            type: finalKey, x: x, y: y, vy: 40,
+            color: DROP_TYPES[finalKey].color,
+            symbol: DROP_TYPES[finalKey].symbol,
           });
           return;
         }
@@ -3840,6 +4050,21 @@
       const drops = state.battle.drops;
       for (let i = drops.length - 1; i >= 0; i--) {
         const d = drops[i];
+
+        // Magnet: pull drops toward player with magnet active
+        for (let pi = 0; pi < state.activePlayerCount; pi++) {
+          const bp = state.battle.battlePlayers[pi];
+          if (bp.alive && bp.magnet > 0) {
+            const dx = bp.x - d.x;
+            const dy = BATTLE_PLAYER_Y - d.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 5) {
+              d.x += (dx / dist) * 200 * dt;
+              d.y += (dy / dist) * 200 * dt;
+            }
+          }
+        }
+
         d.y += d.vy * dt;
 
         // Check collision with active players
@@ -3861,6 +4086,38 @@
       }
     }
 
+    const POWER_UP_NAMES = {
+      heart: 'HEAL', superBoost: 'SUPER BOOST', speedStar: 'SPEED STAR', shield: 'SHIELD',
+      tripleShot: 'TRIPLE SHOT', giantShot: 'GIANT SHOT', rapidFire: 'RAPID FIRE',
+      magnet: 'MAGNET', timeSlow: 'TIME SLOW', starShield: 'STAR SHIELD',
+      giantDragon: 'GIANT DRAGON', clone: 'CLONE', rainbowTrail: 'RAINBOW TRAIL',
+      friendBeam: 'FRIENDSHIP BEAM',
+    };
+
+    const POWER_TYPES = ['tripleShot', 'giantShot', 'rapidFire', 'clone', 'timeSlow', 'friendBeam'];
+
+    function spawnBonusEnemies(count) {
+      const types = ['shadowPuff', 'darkButterfly', 'corruptedEgg'];
+      const speedMult = 1 + state.battle.wave * 0.05;
+      for (let i = 0; i < count; i++) {
+        const typeName = types[Math.floor(Math.random() * types.length)];
+        const tc = ENEMY_TYPES[typeName];
+        state.battle.enemies.push({
+          type: typeName,
+          x: 40 + Math.random() * (CANVAS_W - 80),
+          y: -tc.size - Math.random() * 60,
+          hp: tc.hp, maxHp: tc.hp,
+          speed: tc.speed * speedMult * 1.2,
+          size: tc.size, color: tc.color, pattern: tc.pattern,
+          timer: Math.random() * Math.PI * 2,
+          curing: false, cureTimer: 0,
+          shoots: false, splits: false, shootTimer: 0,
+          spawnTime: state.time,
+          frozen: 0, vined: 0,
+        });
+      }
+    }
+
     function applyDrop(type, playerIdx) {
       const b = state.battle.battlePlayers[playerIdx];
       switch (type) {
@@ -3876,12 +4133,45 @@
         case 'shield':
           b.shieldActive = true;
           break;
+        case 'tripleShot':   b.tripleShot = 10; break;
+        case 'giantShot':    b.giantShot = 10; break;
+        case 'rapidFire':    b.rapidFire = 8; break;
+        case 'magnet':       b.magnet = 8; break;
+        case 'timeSlow':     b.timeSlow = 6; break;
+        case 'starShield':   b.starShield = 10; break;
+        case 'giantDragon':  b.giantDragon = 8; break;
+        case 'clone':        b.clone = 10; break;
+        case 'rainbowTrail': b.rainbowTrail = 10; b.trailPoints = []; break;
+        case 'friendBeam':   state.battle.friendBeam = 10; break;
       }
+
+      // Dynamic enemy compensation for power types
+      if (POWER_TYPES.includes(type)) {
+        spawnBonusEnemies(3);
+      }
+
+      // Collect effect
       state.battle.effects.push({
         x: b.x, y: BATTLE_PLAYER_Y - 20,
         type: 'collect',
         timer: 0, maxTimer: 0.8,
         text: '+' + DROP_TYPES[type].symbol,
+        color: DROP_TYPES[type].color,
+      });
+
+      // Power-up name text floating up
+      state.battle.effects.push({
+        type: 'powerUpText',
+        x: b.x, y: BATTLE_PLAYER_Y - 30,
+        timer: 1.5, maxTimer: 1.5,
+        text: POWER_UP_NAMES[type] || type.toUpperCase(),
+        color: DROP_TYPES[type].color,
+      });
+
+      // Screen edge flash
+      state.battle.effects.push({
+        type: 'edgeFlash',
+        timer: 0.3, maxTimer: 0.3,
         color: DROP_TYPES[type].color,
       });
     }
@@ -3965,6 +4255,27 @@
             ctx.beginPath();
             ctx.arc(e.x, e.y, progress * 30, 0, Math.PI * 2);
             ctx.stroke();
+            break;
+          }
+          case 'powerUpText': {
+            const t = progress;
+            ctx.globalAlpha = 1 - t;
+            ctx.fillStyle = e.color;
+            ctx.font = 'bold 16px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(e.text, e.x, e.y - t * 40);
+            ctx.globalAlpha = 1;
+            break;
+          }
+          case 'edgeFlash': {
+            ctx.globalAlpha = alpha * 0.4;
+            ctx.fillStyle = e.color;
+            const edgeW = 12;
+            ctx.fillRect(0, 0, edgeW, CANVAS_H);
+            ctx.fillRect(CANVAS_W - edgeW, 0, edgeW, CANVAS_H);
+            ctx.fillRect(0, 0, CANVAS_W, edgeW);
+            ctx.fillRect(0, CANVAS_H - edgeW, CANVAS_W, edgeW);
+            ctx.globalAlpha = 1;
             break;
           }
 
@@ -4630,6 +4941,39 @@
           ctx.fillStyle = '#FFD700';
           ctx.textAlign = isLeft ? 'left' : 'right';
           ctx.fillText('SUPER READY!', isLeft ? barX : barX + barW, barY + barH + 12);
+        }
+
+        // Active power-up indicators
+        const activePowerUps = ['tripleShot', 'giantShot', 'rapidFire', 'magnet', 'timeSlow', 'starShield', 'giantDragon', 'clone', 'rainbowTrail'];
+        let iconIdx = 0;
+        const iconY = barY + barH + 22;
+        for (const pKey of activePowerUps) {
+          if (b[pKey] > 0) {
+            const pCfg = DROP_TYPES[pKey];
+            const ix = isLeft ? baseX + iconIdx * 18 : baseX - iconIdx * 18;
+            // Symbol
+            ctx.font = '12px serif';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = pCfg.color;
+            ctx.fillText(pCfg.symbol, ix + 6, iconY + 4);
+            // Timer bar
+            const frac = Math.max(0, b[pKey] / 10);
+            ctx.fillStyle = pCfg.color + '88';
+            ctx.fillRect(ix, iconY + 7, 14 * frac, 3);
+            iconIdx++;
+          }
+        }
+        // Friendship beam indicator
+        if (state.battle.friendBeam > 0) {
+          const fbCfg = DROP_TYPES.friendBeam;
+          const ix = isLeft ? baseX + iconIdx * 18 : baseX - iconIdx * 18;
+          ctx.font = '12px serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = fbCfg.color;
+          ctx.fillText(fbCfg.symbol, ix + 6, iconY + 4);
+          const frac = Math.max(0, state.battle.friendBeam / 10);
+          ctx.fillStyle = fbCfg.color + '88';
+          ctx.fillRect(ix, iconY + 7, 14 * frac, 3);
         }
       }
     }
