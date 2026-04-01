@@ -2536,6 +2536,8 @@
         const target = document.elementFromPoint(touch.clientX, touch.clientY);
         if (target && (target.id === 'super-btn-left' || target.id === 'super-btn-right')) continue;
 
+        e.preventDefault(); // Stop iOS magnifier/text selection
+
         const screenMid = window.innerWidth / 2;
 
         if (state.activePlayerCount === 1) {
@@ -2551,10 +2553,11 @@
           }
         }
       }
-    }, { passive: true });
+    }, { passive: false });
 
     document.addEventListener('touchmove', function(e) {
       if (state.screen !== 'battle') return;
+      e.preventDefault(); // Stop iOS scrolling/magnifier
 
       for (let ti = 0; ti < e.changedTouches.length; ti++) {
         const touch = e.changedTouches[ti];
@@ -2565,7 +2568,7 @@
           touchDrag.right.currentX = touch.clientX;
         }
       }
-    }, { passive: true });
+    }, { passive: false });
 
     document.addEventListener('touchend', function(e) {
       for (let ti = 0; ti < e.changedTouches.length; ti++) {
