@@ -425,9 +425,10 @@
     // GAME STATE
     // ============================================================
     const state = {
-      screen: 'playing',
+      screen: 'title',
       mode: null,
       time: 0,
+      titleSelection: 0,
     };
 
     const players = [
@@ -456,7 +457,6 @@
     state.eggs = [];
     state.hatching = [];
     state.unlockEffect = null;
-    state.mode = 'adventure';
     state.particles = [];
 
     // ============================================================
@@ -696,6 +696,119 @@
     }
 
     // ============================================================
+    // TITLE SCREEN
+    // ============================================================
+    function drawTitleScreen() {
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+      // Stars
+      for (let i = 0; i < 50; i++) {
+        const sx = (Math.sin(i * 127.1) * 0.5 + 0.5) * CANVAS_W;
+        const sy = (Math.cos(i * 311.7) * 0.5 + 0.5) * CANVAS_H;
+        const twinkle = Math.sin(state.time * 2 + i) * 0.5 + 0.5;
+        ctx.fillStyle = `rgba(255, 255, 255, ${twinkle * 0.5})`;
+        ctx.fillRect(sx, sy, 2, 2);
+      }
+
+      // Title
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 36px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Dragon Egg Island', CANVAS_W / 2, 150);
+
+      ctx.fillStyle = '#aaa';
+      ctx.font = '14px monospace';
+      ctx.fillText('A cooperative dragon collecting adventure', CANVAS_W / 2, 185);
+
+      // Characters
+      drawSprite(SPRITES.harper, CANVAS_W / 2 - 80, 210, 48);
+      drawSprite(SPRITES.audrey, CANVAS_W / 2 + 32, 210, 48);
+
+      ctx.font = '12px monospace';
+      ctx.fillStyle = '#87CEEB';
+      ctx.fillText('Harper', CANVAS_W / 2 - 56, 275);
+      ctx.fillStyle = '#9B59B6';
+      ctx.fillText('Audrey', CANVAS_W / 2 + 56, 275);
+
+      // Mode selection
+      const advSel = state.titleSelection === 0;
+      const fpSel = state.titleSelection === 1;
+
+      ctx.fillStyle = advSel ? '#FFD700' : '#666';
+      ctx.font = (advSel ? 'bold ' : '') + '20px monospace';
+      ctx.fillText(advSel ? '> Adventure <' : 'Adventure', CANVAS_W / 2, 340);
+      ctx.font = '11px monospace';
+      ctx.fillStyle = advSel ? '#ccc' : '#555';
+      ctx.fillText('Explore zones, collect eggs, unlock new areas!', CANVAS_W / 2, 360);
+
+      ctx.fillStyle = fpSel ? '#FFD700' : '#666';
+      ctx.font = (fpSel ? 'bold ' : '') + '20px monospace';
+      ctx.fillText(fpSel ? '> Free Play <' : 'Free Play', CANVAS_W / 2, 410);
+      ctx.font = '11px monospace';
+      ctx.fillStyle = fpSel ? '#ccc' : '#555';
+      ctx.fillText('All zones open, just explore and have fun!', CANVAS_W / 2, 430);
+
+      // Controls hint
+      ctx.fillStyle = '#555';
+      ctx.font = '11px monospace';
+      ctx.fillText('Use Arrow Keys or WASD to select, then press Enter to start', CANVAS_W / 2, 510);
+
+      // Decorative eggs
+      const eggTypes = ['fire', 'nature', 'love'];
+      for (let i = 0; i < 3; i++) {
+        const bob = Math.sin(state.time * 2 + i * 2) * 4;
+        drawSprite(EGG_SPRITES[eggTypes[i]], 100 + i * 40, 480 + bob, 24);
+        drawSprite(EGG_SPRITES[eggTypes[i]], CANVAS_W - 180 + i * 40, 480 + bob, 24);
+      }
+    }
+
+    function updateTitleScreen() {
+      if (keys['ArrowUp'] || keys['w']) {
+        state.titleSelection = 0;
+        keys['ArrowUp'] = false;
+        keys['w'] = false;
+      }
+      if (keys['ArrowDown'] || keys['s']) {
+        state.titleSelection = 1;
+        keys['ArrowDown'] = false;
+        keys['s'] = false;
+      }
+      if (keys['Enter'] || keys[' '] || keys['ArrowRight'] || keys['d']) {
+        startGame(state.titleSelection === 0 ? 'adventure' : 'freeplay');
+        keys['Enter'] = false;
+        keys[' '] = false;
+        keys['ArrowRight'] = false;
+        keys['d'] = false;
+      }
+    }
+
+    function startGame(mode) {
+      state.screen = 'playing';
+      state.mode = mode;
+      state.currentZone = 'meadow';
+      state.collection = {};
+      state.dragons = [];
+      state.eggs = [];
+      state.particles = [];
+      state.hatching = [];
+      state.unlockEffect = null;
+
+      if (mode === 'freeplay') {
+        state.unlockedZones = ['meadow', 'heart'];
+      } else {
+        state.unlockedZones = ['meadow'];
+      }
+
+      players[0].x = 11;
+      players[0].y = 7;
+      players[1].x = 13;
+      players[1].y = 7;
+
+      spawnEggsForZone('meadow');
+    }
+
+    // ============================================================
     // PARTICLES
     // ============================================================
     const MAX_PARTICLES = 30;
@@ -776,14 +889,15 @@
     let lastTime = 0;
 
     function loop(timestamp) {
-      let dt = (timestamp - lastTime) / 1000;
+      const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
       lastTime = timestamp;
-      if (dt > 0.1) dt = 0.1;
-
       state.time += dt;
 
-      // Update
-      if (state.screen === 'playing') {
+      if (state.screen === 'title') {
+        updateTitleScreen();
+        drawTitleScreen();
+      } else if (state.screen === 'playing') {
+        // Update
         updatePlayers(dt);
         checkZoneTransition();
         checkEggCollection();
@@ -791,14 +905,10 @@
         updateDragons(dt);
         updateUnlockEffect(dt);
         updateParticles(dt);
-      }
 
-      // Clear screen
-      ctx.fillStyle = '#1a1a2e';
-      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-      // Draw
-      if (state.screen === 'playing') {
+        // Draw
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
         drawZone(ZONES[state.currentZone]);
         drawParticles();
         drawDragons();
@@ -807,19 +917,11 @@
         drawHatching();
         drawUI();
         drawUnlockEffect();
-      } else {
-        // Placeholder title text
-        ctx.fillStyle = '#FFD700';
-        ctx.font = 'bold 48px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('Dragon Egg Island', CANVAS_W / 2, CANVAS_H / 2);
       }
 
       requestAnimationFrame(loop);
     }
 
-    spawnEggsForZone('meadow');
     requestAnimationFrame(loop);
   </script>
 </body>
