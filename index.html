@@ -207,12 +207,40 @@
       heart_leaf: '#ff69b4',
       bush:       '#27ae60',
       bridge:     '#a0522d',
+      dark_tree_top:  '#1a5c14',
+      dark_tree_trunk:'#5D4037',
+      mushroom:       '#E040FB',
+      moss:           '#558B2F',
+      cave_wall:      '#4a4a5e',
+      cave_floor:     '#6b6b80',
+      crystal:        '#E1BEE7',
+      gem_blue:       '#64B5F6',
+      gem_pink:       '#F48FB1',
+      cave_water:     '#1565C0',
+      snow:           '#f0f0f0',
+      snow2:          '#dde4e8',
+      ice_tile:       '#bbdefb',
+      pine_top:       '#1B5E20',
+      pine_trunk:     '#5D4037',
+      frozen_water:   '#90CAF9',
+      snow_rock:      '#B0BEC5',
+      volcanic_rock:  '#4E342E',
+      lava:           '#FF6F00',
+      lava2:          '#E65100',
+      magma_rock:     '#3E2723',
+      ash:            '#616161',
+      ember:          '#BF360C',
+      rainbow_grass:  '#81C784',
+      rainbow_water:  '#4DD0E1',
+      rainbow_rock:   '#B0BEC5',
+      rainbow_flower: '#FF80AB',
+      sparkle_tile:   '#FFF176',
     };
 
     const UI_ROWS = 2;
     const MAP_ROWS = ROWS - UI_ROWS; // 16 playable rows
 
-    const SOLID_TILES = ['tree_trunk', 'tree_top', 'heart_tree', 'heart_leaf', 'water', 'rock'];
+    const SOLID_TILES = ['tree_trunk', 'tree_top', 'heart_tree', 'heart_leaf', 'water', 'rock', 'dark_tree_top', 'dark_tree_trunk', 'mushroom', 'cave_wall', 'crystal', 'cave_water', 'pine_top', 'pine_trunk', 'snow_rock', 'frozen_water', 'volcanic_rock', 'lava', 'lava2', 'magma_rock', 'rainbow_rock', 'rainbow_water'];
 
     // ZONE_FLOWER_MEADOW: 16 rows x 25 cols
     const ZONE_FLOWER_MEADOW = [
@@ -281,19 +309,214 @@
       // row 13
       ['grass','grass','grass','grass','flower_p','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','flower_p','grass','grass','grass','grass','grass','grass'],
       // row 14
-      ['heart_leaf','heart_leaf','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','heart_leaf','heart_leaf','grass'],
+      ['heart_leaf','heart_leaf','grass','grass','grass','grass','grass','grass','path','path','path','path','path','path','path','path','path','grass','grass','grass','grass','grass','heart_leaf','heart_leaf','grass'],
       // row 15
-      ['heart_tree','heart_tree','grass','grass','grass','flower_p','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','flower_p','grass','grass','heart_tree','heart_tree','grass'],
+      ['heart_tree','heart_tree','grass','grass','grass','flower_p','grass','grass','path','path','path','path','path','path','path','path','path','grass','flower_p','grass','grass','grass','heart_tree','heart_tree','grass'],
+    ];
+
+    // ZONE_ENCHANTED_FOREST: 16 rows x 25 cols
+    const ZONE_ENCHANTED_FOREST = [
+      // row 0 - path at top cols 4-16
+      ['dark_tree_top','dark_tree_top','grass','grass','path','path','path','path','path','path','path','path','path','path','path','path','path','grass','grass','grass','dark_tree_top','dark_tree_top','grass','grass','grass'],
+      // row 1
+      ['dark_tree_trunk','dark_tree_trunk','grass','grass','path','path','path','path','path','path','path','path','path','path','path','path','path','grass','moss','grass','dark_tree_trunk','dark_tree_trunk','grass','grass','grass'],
+      // row 2
+      ['grass','grass','moss','grass','grass','grass','dark_tree_top','dark_tree_top','grass','grass','grass','grass','grass','grass','grass','dark_tree_top','dark_tree_top','grass','grass','grass','grass','grass','moss','grass','grass'],
+      // row 3
+      ['grass','grass','grass','grass','grass','grass','dark_tree_trunk','dark_tree_trunk','grass','grass','mushroom','grass','grass','grass','grass','dark_tree_trunk','dark_tree_trunk','grass','grass','grass','grass','grass','grass','grass','grass'],
+      // row 4
+      ['dark_tree_top','dark_tree_top','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','dark_tree_top','dark_tree_top','grass','grass','mushroom','grass'],
+      // row 5
+      ['dark_tree_trunk','dark_tree_trunk','grass','moss','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','moss','grass','grass','grass','grass','dark_tree_trunk','dark_tree_trunk','grass','grass','grass','grass'],
+      // row 6
+      ['grass','grass','grass','grass','grass','dark_tree_top','dark_tree_top','grass','grass','grass','grass','grass','grass','grass','grass','grass','dark_tree_top','dark_tree_top','grass','grass','grass','grass','grass','grass','grass'],
+      // row 7
+      ['grass','mushroom','grass','grass','grass','dark_tree_trunk','dark_tree_trunk','grass','grass','grass','grass','grass','grass','grass','grass','grass','dark_tree_trunk','dark_tree_trunk','grass','grass','grass','mushroom','grass','grass','grass'],
+      // row 8
+      ['grass','grass','grass','grass','grass','grass','grass','grass','grass','moss','grass','grass','grass','moss','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass'],
+      // row 9
+      ['grass','grass','dark_tree_top','dark_tree_top','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','dark_tree_top','dark_tree_top','grass','grass','grass','grass','grass'],
+      // row 10
+      ['grass','grass','dark_tree_trunk','dark_tree_trunk','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','dark_tree_trunk','dark_tree_trunk','grass','grass','grass','grass','grass'],
+      // row 11
+      ['grass','grass','grass','grass','grass','grass','mushroom','grass','grass','grass','grass','grass','grass','grass','grass','mushroom','grass','grass','grass','grass','grass','grass','moss','grass','grass'],
+      // row 12
+      ['dark_tree_top','dark_tree_top','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','dark_tree_top','dark_tree_top','grass','grass'],
+      // row 13
+      ['dark_tree_trunk','dark_tree_trunk','grass','grass','moss','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','moss','grass','dark_tree_trunk','dark_tree_trunk','grass','grass'],
+      // row 14 - path at bottom cols 8-16
+      ['grass','grass','grass','grass','grass','grass','grass','grass','path','path','path','path','path','path','path','path','path','grass','grass','grass','grass','grass','grass','grass','grass'],
+      // row 15
+      ['dark_tree_top','dark_tree_top','grass','grass','grass','grass','grass','grass','path','path','path','path','path','path','path','path','path','grass','grass','grass','grass','grass','dark_tree_top','dark_tree_top','grass'],
+    ];
+
+    // ZONE_CRYSTAL_CAVE: 16 rows x 25 cols
+    const ZONE_CRYSTAL_CAVE = [
+      // row 0 - cave_wall with path opening at cols 4-16
+      ['cave_wall','cave_wall','cave_wall','cave_wall','path','path','path','path','path','path','path','path','path','path','path','path','path','cave_wall','cave_wall','cave_wall','cave_wall','cave_wall','cave_wall','cave_wall','cave_wall'],
+      // row 1
+      ['cave_wall','cave_floor','cave_floor','cave_floor','path','path','path','path','path','path','path','path','path','path','path','path','path','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_wall'],
+      // row 2
+      ['cave_wall','cave_floor','cave_floor','gem_blue','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','gem_pink','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_wall'],
+      // row 3
+      ['cave_wall','cave_floor','cave_floor','cave_floor','cave_floor','crystal','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','crystal','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_wall'],
+      // row 4
+      ['cave_wall','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','crystal','cave_floor','cave_floor','cave_wall'],
+      // row 5
+      ['cave_wall','cave_floor','gem_pink','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_water','cave_water','cave_water','cave_water','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_wall'],
+      // row 6
+      ['cave_wall','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_water','cave_water','cave_water','cave_water','cave_water','cave_water','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','gem_blue','cave_floor','cave_wall'],
+      // row 7
+      ['cave_wall','cave_floor','cave_floor','cave_floor','crystal','cave_floor','cave_floor','cave_floor','cave_floor','cave_water','cave_water','cave_water','cave_water','cave_water','cave_water','cave_floor','cave_floor','cave_floor','cave_floor','crystal','cave_floor','cave_floor','cave_floor','cave_floor','cave_wall'],
+      // row 8
+      ['cave_wall','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_water','cave_water','cave_water','cave_water','cave_water','cave_water','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_wall'],
+      // row 9
+      ['cave_wall','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_water','cave_water','cave_water','cave_water','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_wall'],
+      // row 10
+      ['cave_wall','cave_floor','gem_blue','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','gem_pink','cave_floor','cave_floor','cave_wall'],
+      // row 11
+      ['cave_wall','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','crystal','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','crystal','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_wall'],
+      // row 12
+      ['cave_wall','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_wall'],
+      // row 13
+      ['cave_wall','cave_floor','cave_floor','gem_pink','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','gem_blue','cave_floor','cave_floor','cave_floor','cave_wall'],
+      // row 14 - path at bottom cols 8-16
+      ['cave_wall','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','path','path','path','path','path','path','path','path','path','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_floor','cave_wall'],
+      // row 15
+      ['cave_wall','cave_wall','cave_wall','cave_wall','cave_wall','cave_wall','cave_wall','cave_wall','path','path','path','path','path','path','path','path','path','cave_wall','cave_wall','cave_wall','cave_wall','cave_wall','cave_wall','cave_wall','cave_wall'],
+    ];
+
+    // ZONE_SNOWY_MOUNTAIN: 16 rows x 25 cols
+    const ZONE_SNOWY_MOUNTAIN = [
+      // row 0 - path at top cols 4-16
+      ['pine_top','pine_top','snow','snow','path','path','path','path','path','path','path','path','path','path','path','path','path','snow','snow','snow','pine_top','pine_top','snow','snow','snow'],
+      // row 1
+      ['pine_trunk','pine_trunk','snow','snow','path','path','path','path','path','path','path','path','path','path','path','path','path','snow','snow2','snow','pine_trunk','pine_trunk','snow','snow','snow'],
+      // row 2
+      ['snow','snow','snow','snow2','snow','snow','snow','snow','snow','snow','snow','snow','snow','snow','snow','snow','snow','snow','snow','snow','snow','snow','snow2','snow','snow'],
+      // row 3
+      ['snow','snow','snow','snow','snow','pine_top','pine_top','snow','snow','snow','snow_rock','snow','snow','snow','snow_rock','snow','snow','pine_top','pine_top','snow','snow','snow','snow','snow','snow'],
+      // row 4
+      ['snow','snow2','snow','snow','snow','pine_trunk','pine_trunk','snow','snow','snow','snow','snow','snow','snow','snow','snow','snow','pine_trunk','pine_trunk','snow','snow','snow','snow','snow2','snow'],
+      // row 5
+      ['snow','snow','snow','snow','snow','snow','snow','snow','snow','snow','frozen_water','frozen_water','frozen_water','frozen_water','snow','snow','snow','snow','snow','snow','snow','snow','snow','snow','snow'],
+      // row 6
+      ['snow','snow','snow','snow_rock','snow','snow','snow','snow','snow','frozen_water','frozen_water','frozen_water','frozen_water','frozen_water','frozen_water','snow','snow','snow','snow','snow_rock','snow','snow','snow','snow','snow'],
+      // row 7
+      ['snow','snow','snow','snow','snow','snow','snow','snow','frozen_water','frozen_water','frozen_water','frozen_water','frozen_water','frozen_water','frozen_water','frozen_water','snow','snow','snow','snow','snow','snow','snow','snow','snow'],
+      // row 8
+      ['snow','pine_top','pine_top','snow','snow','snow','snow','snow','frozen_water','frozen_water','frozen_water','frozen_water','frozen_water','frozen_water','frozen_water','frozen_water','snow','snow','snow','snow','snow','pine_top','pine_top','snow','snow'],
+      // row 9
+      ['snow','pine_trunk','pine_trunk','snow','snow','snow','snow','snow','snow','frozen_water','frozen_water','frozen_water','frozen_water','frozen_water','frozen_water','snow','snow','snow','snow','snow','snow','pine_trunk','pine_trunk','snow','snow'],
+      // row 10
+      ['snow','snow','snow','snow','snow','snow','snow','snow','snow','snow','frozen_water','frozen_water','frozen_water','frozen_water','snow','snow','snow','snow','snow','snow','snow','snow','snow','snow','snow'],
+      // row 11
+      ['snow','snow','snow2','snow','snow','snow','pine_top','pine_top','snow','snow','snow','snow','snow','snow','snow','snow','pine_top','pine_top','snow','snow','snow','snow','snow2','snow','snow'],
+      // row 12
+      ['snow','snow','snow','snow','snow','snow','pine_trunk','pine_trunk','snow','snow','snow','snow','snow','snow','snow','snow','pine_trunk','pine_trunk','snow','snow','snow','snow','snow','snow','snow'],
+      // row 13
+      ['snow','snow','snow','snow_rock','snow','snow','snow','snow','snow','snow','snow','snow2','snow','snow','snow','snow','snow','snow','snow','snow_rock','snow','snow','snow','snow','snow'],
+      // row 14 - path at bottom cols 8-16
+      ['snow','snow','snow','snow','snow','snow','snow','snow','path','path','path','path','path','path','path','path','path','snow','snow','snow','snow','snow','snow','snow','snow'],
+      // row 15
+      ['pine_top','pine_top','snow','snow','snow2','snow','snow','snow','path','path','path','path','path','path','path','path','path','snow','snow','snow2','snow','snow','pine_top','pine_top','snow'],
+    ];
+
+    // ZONE_VOLCANO_RIDGE: 16 rows x 25 cols
+    const ZONE_VOLCANO_RIDGE = [
+      // row 0 - path at top cols 4-16
+      ['volcanic_rock','volcanic_rock','ash','ash','path','path','path','path','path','path','path','path','path','path','path','path','path','ash','ash','volcanic_rock','volcanic_rock','volcanic_rock','volcanic_rock','volcanic_rock','volcanic_rock'],
+      // row 1
+      ['volcanic_rock','ash','ash','ash','path','path','path','path','path','path','path','path','path','path','path','path','path','ash','ash','ash','ash','ash','ash','ash','volcanic_rock'],
+      // row 2
+      ['volcanic_rock','ash','ash','ember','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ember','ash','ash','ash','ash','volcanic_rock'],
+      // row 3
+      ['volcanic_rock','ash','ash','ash','ash','magma_rock','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','magma_rock','ash','ash','ash','ash','ash','ash','ash','volcanic_rock'],
+      // row 4
+      ['volcanic_rock','ash','ember','ash','ash','ash','ash','ash','ash','lava','lava2','lava','ash','ash','ash','ash','ash','ash','ash','ash','ash','ember','ash','ash','volcanic_rock'],
+      // row 5
+      ['volcanic_rock','ash','ash','ash','ash','ash','ash','ash','lava','lava2','lava','lava2','lava','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','volcanic_rock'],
+      // row 6
+      ['volcanic_rock','ash','ash','ash','magma_rock','ash','ash','ash','lava2','lava','lava2','lava','lava2','lava','ash','ash','ash','magma_rock','ash','ash','ash','ash','ash','ash','volcanic_rock'],
+      // row 7
+      ['volcanic_rock','ash','ash','ash','ash','ash','ash','ash','ash','lava','lava2','lava','lava2','lava','lava2','ash','ash','ash','ash','ash','ash','ash','ash','ash','volcanic_rock'],
+      // row 8
+      ['volcanic_rock','ash','ember','ash','ash','ash','ash','ash','ash','ash','lava','lava2','lava','lava2','lava','lava2','ash','ash','ash','ash','ember','ash','ash','ash','volcanic_rock'],
+      // row 9
+      ['volcanic_rock','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','lava','lava2','lava','lava2','ash','ash','ash','ash','ash','ash','ash','ash','ash','volcanic_rock'],
+      // row 10
+      ['volcanic_rock','ash','ash','ash','ash','magma_rock','ash','ash','ash','ash','ash','ash','lava','lava2','ash','ash','ash','ash','magma_rock','ash','ash','ash','ash','ash','volcanic_rock'],
+      // row 11
+      ['volcanic_rock','ash','ash','ember','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ember','ash','ash','volcanic_rock'],
+      // row 12
+      ['volcanic_rock','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','ash','volcanic_rock'],
+      // row 13
+      ['volcanic_rock','ash','ash','ash','ash','ash','magma_rock','ash','ash','ember','ash','ash','ash','ash','ember','ash','ash','magma_rock','ash','ash','ash','ash','ash','ash','volcanic_rock'],
+      // row 14 - path at bottom cols 8-16
+      ['volcanic_rock','ash','ash','ash','ash','ash','ash','ash','path','path','path','path','path','path','path','path','path','ash','ash','ash','ash','ash','ash','ash','volcanic_rock'],
+      // row 15
+      ['volcanic_rock','volcanic_rock','volcanic_rock','ash','ash','ash','ash','ash','path','path','path','path','path','path','path','path','path','ash','ash','ash','ash','volcanic_rock','volcanic_rock','volcanic_rock','volcanic_rock'],
+    ];
+
+    // ZONE_RAINBOW_FALLS: 16 rows x 25 cols (final zone - path only at top)
+    const ZONE_RAINBOW_FALLS = [
+      // row 0 - path at top cols 4-16
+      ['rainbow_rock','rainbow_rock','rainbow_grass','rainbow_grass','path','path','path','path','path','path','path','path','path','path','path','path','path','rainbow_grass','rainbow_grass','rainbow_rock','rainbow_rock','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_rock'],
+      // row 1
+      ['rainbow_rock','rainbow_grass','rainbow_grass','rainbow_grass','path','path','path','path','path','path','path','path','path','path','path','path','path','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_rock'],
+      // row 2
+      ['rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass'],
+      // row 3
+      ['rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass'],
+      // row 4
+      ['rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass'],
+      // row 5
+      ['rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass'],
+      // row 6
+      ['rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass'],
+      // row 7
+      ['rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass'],
+      // row 8
+      ['rainbow_grass','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_grass','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass'],
+      // row 9
+      ['rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass'],
+      // row 10
+      ['rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_water','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass'],
+      // row 11
+      ['rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass'],
+      // row 12
+      ['rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass'],
+      // row 13
+      ['rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass'],
+      // row 14 - no path (final zone)
+      ['rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass'],
+      // row 15
+      ['rainbow_rock','rainbow_rock','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_rock','rainbow_rock','rainbow_rock'],
     ];
 
     const ZONES = {
       meadow: { map: ZONE_FLOWER_MEADOW, name: 'Flower Meadow', eggs: ['fire', 'nature'] },
       heart:  { map: ZONE_HEART_FOREST,  name: 'Heart Forest',  eggs: ['love'] },
+      enchanted: { map: ZONE_ENCHANTED_FOREST, name: 'Enchanted Forest', eggs: ['nature', 'shadow'] },
+      crystal: { map: ZONE_CRYSTAL_CAVE, name: 'Crystal Cave', eggs: ['star', 'ice'] },
+      snowy: { map: ZONE_SNOWY_MOUNTAIN, name: 'Snowy Mountain', eggs: ['ice', 'star'] },
+      volcano: { map: ZONE_VOLCANO_RIDGE, name: 'Volcano Ridge', eggs: ['fire', 'shadow'] },
+      rainbow: { map: ZONE_RAINBOW_FALLS, name: 'Rainbow Falls', eggs: ['rainbow'] },
     };
 
     const ZONE_CONNECTIONS = [
       { from: 'meadow', edge: 'bottom', to: 'heart', unlockRequired: true },
       { from: 'heart', edge: 'top', to: 'meadow', unlockRequired: false },
+      { from: 'heart', edge: 'bottom', to: 'enchanted', unlockRequired: true },
+      { from: 'enchanted', edge: 'top', to: 'heart', unlockRequired: false },
+      { from: 'enchanted', edge: 'bottom', to: 'crystal', unlockRequired: true },
+      { from: 'crystal', edge: 'top', to: 'enchanted', unlockRequired: false },
+      { from: 'crystal', edge: 'bottom', to: 'snowy', unlockRequired: true },
+      { from: 'snowy', edge: 'top', to: 'crystal', unlockRequired: false },
+      { from: 'snowy', edge: 'bottom', to: 'volcano', unlockRequired: true },
+      { from: 'volcano', edge: 'top', to: 'snowy', unlockRequired: false },
+      { from: 'volcano', edge: 'bottom', to: 'rainbow', unlockRequired: true },
+      { from: 'rainbow', edge: 'top', to: 'volcano', unlockRequired: false },
     ];
 
     // ============================================================
@@ -446,6 +669,103 @@
         ctx.beginPath();
         ctx.arc(x + TILE / 2, y + TILE * 0.6, TILE * 0.32, 0, Math.PI * 2);
         ctx.fill();
+      } else if (type === 'mushroom') {
+        // grass bg
+        ctx.fillStyle = TILE_COLORS['grass'];
+        ctx.fillRect(x, y, TILE, TILE);
+        // brown stem
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(x + TILE * 0.4, y + TILE * 0.55, TILE * 0.2, TILE * 0.35);
+        // purple semicircle cap
+        ctx.fillStyle = TILE_COLORS['mushroom'];
+        ctx.beginPath();
+        ctx.arc(x + TILE / 2, y + TILE * 0.55, TILE * 0.3, Math.PI, 0);
+        ctx.fill();
+        // white dot
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(x + TILE / 2, y + TILE * 0.42, TILE * 0.07, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (type === 'moss') {
+        ctx.fillStyle = TILE_COLORS['moss'];
+        ctx.fillRect(x, y, TILE, TILE);
+      } else if (type === 'crystal') {
+        // cave_floor bg
+        ctx.fillStyle = TILE_COLORS['cave_floor'];
+        ctx.fillRect(x, y, TILE, TILE);
+        // diamond shape
+        ctx.fillStyle = TILE_COLORS['crystal'];
+        ctx.beginPath();
+        ctx.moveTo(x + TILE / 2, y + TILE * 0.15);
+        ctx.lineTo(x + TILE * 0.75, y + TILE / 2);
+        ctx.lineTo(x + TILE / 2, y + TILE * 0.85);
+        ctx.lineTo(x + TILE * 0.25, y + TILE / 2);
+        ctx.closePath();
+        ctx.fill();
+        // white shine dot
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(x + TILE * 0.4, y + TILE * 0.35, TILE * 0.06, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (type === 'gem_blue' || type === 'gem_pink') {
+        // cave_floor bg
+        ctx.fillStyle = TILE_COLORS['cave_floor'];
+        ctx.fillRect(x, y, TILE, TILE);
+        // small colored circle
+        ctx.fillStyle = TILE_COLORS[type];
+        ctx.beginPath();
+        ctx.arc(x + TILE / 2, y + TILE / 2, TILE * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        // white shine
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(x + TILE * 0.45, y + TILE * 0.4, TILE * 0.06, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (type === 'lava' || type === 'lava2') {
+        const pulse = Math.sin(state.time * 3 + col * 0.5 + row * 0.3) * 0.15;
+        const baseColor = type === 'lava' ? [255, 111, 0] : [230, 81, 0];
+        const g = Math.max(0, Math.min(255, baseColor[1] + Math.floor(pulse * 255)));
+        ctx.fillStyle = 'rgb(' + baseColor[0] + ',' + g + ',' + baseColor[2] + ')';
+        ctx.fillRect(x, y, TILE, TILE);
+      } else if (type === 'ember') {
+        // ash bg
+        ctx.fillStyle = TILE_COLORS['ash'];
+        ctx.fillRect(x, y, TILE, TILE);
+        // small orange-red dot
+        ctx.fillStyle = TILE_COLORS['ember'];
+        ctx.beginPath();
+        ctx.arc(x + TILE / 2, y + TILE / 2, TILE * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (type === 'rainbow_water') {
+        // animated rainbow shimmer
+        const hue = ((state.time * 50) + col * 20 + row * 20) % 360;
+        ctx.fillStyle = 'hsl(' + hue + ', 70%, 60%)';
+        ctx.fillRect(x, y, TILE, TILE);
+      } else if (type === 'rainbow_flower') {
+        // rainbow_grass bg
+        ctx.fillStyle = TILE_COLORS['rainbow_grass'];
+        ctx.fillRect(x, y, TILE, TILE);
+        // color-cycling flower
+        const flowerHue = ((state.time * 80) + col * 30 + row * 30) % 360;
+        ctx.fillStyle = 'hsl(' + flowerHue + ', 80%, 65%)';
+        ctx.beginPath();
+        ctx.arc(x + TILE / 2, y + TILE / 2, TILE * 0.28, 0, Math.PI * 2);
+        ctx.fill();
+        // white center
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(x + TILE / 2, y + TILE / 2, TILE * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (type === 'sparkle_tile') {
+        // rainbow_grass bg
+        ctx.fillStyle = TILE_COLORS['rainbow_grass'];
+        ctx.fillRect(x, y, TILE, TILE);
+        // pulsing white dot
+        const sparkleAlpha = Math.sin(state.time * 4 + col + row) * 0.4 + 0.6;
+        ctx.fillStyle = 'rgba(255, 255, 255, ' + sparkleAlpha + ')';
+        ctx.beginPath();
+        ctx.arc(x + TILE / 2, y + TILE / 2, TILE * 0.15, 0, Math.PI * 2);
+        ctx.fill();
       } else {
         ctx.fillStyle = color || '#000';
         ctx.fillRect(x, y, TILE, TILE);
@@ -528,7 +848,7 @@
       ctx.fillText(ZONES[state.currentZone].name, 10, 20);
 
       // Dragon collection icons
-      const allTypes = ['fire', 'nature', 'love'];
+      const allTypes = ['fire', 'nature', 'love', 'shadow', 'star', 'ice', 'rainbow'];
       const startX = 10;
       const y = 34;
 
@@ -564,14 +884,28 @@
       // Adventure mode unlock progress
       if (state.mode === 'adventure') {
         const totalCollected = Object.values(state.collection).reduce((a, b) => a + b, 0);
-        const needed = 5;
+        const unlockOrder = [
+          { zone: 'heart', count: 5 },
+          { zone: 'enchanted', count: 8 },
+          { zone: 'crystal', count: 12 },
+          { zone: 'snowy', count: 16 },
+          { zone: 'volcano', count: 20 },
+          { zone: 'rainbow', count: 25 },
+        ];
         ctx.textAlign = 'center';
         ctx.fillStyle = '#aaa';
         ctx.font = '11px monospace';
-        if (!state.unlockedZones.includes('heart')) {
-          ctx.fillText('Collect ' + totalCollected + '/' + needed + ' eggs to unlock Heart Forest', CANVAS_W / 2, CANVAS_H - 8);
+        let nextUnlock = null;
+        for (const u of unlockOrder) {
+          if (!state.unlockedZones.includes(u.zone)) {
+            nextUnlock = u;
+            break;
+          }
+        }
+        if (nextUnlock) {
+          ctx.fillText('Collect ' + totalCollected + '/' + nextUnlock.count + ' eggs to unlock ' + ZONES[nextUnlock.zone].name, CANVAS_W / 2, CANVAS_H - 8);
         } else {
-          ctx.fillText('Heart Forest unlocked! Walk to the path at the bottom.', CANVAS_W / 2, CANVAS_H - 8);
+          ctx.fillText('All zones unlocked! Explore everywhere!', CANVAS_W / 2, CANVAS_H - 8);
         }
       }
 
@@ -599,7 +933,8 @@
         ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
         ctx.font = 'bold 18px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('Heart Forest unlocked!', CANVAS_W / 2, CANVAS_H / 2 - 20);
+        const unlockedName = ZONES[state.unlockEffect.zone] ? ZONES[state.unlockEffect.zone].name : 'New Zone';
+        ctx.fillText(unlockedName + ' unlocked!', CANVAS_W / 2, CANVAS_H / 2 - 20);
         ctx.font = '13px monospace';
         ctx.fillText('Walk to the path at the bottom!', CANVAS_W / 2, CANVAS_H / 2 + 5);
       }
@@ -657,7 +992,7 @@
       for (let r = 2; r < MAP_ROWS - 2; r++) {
         for (let c = 2; c < COLS - 2; c++) {
           const tile = zone.map[r][c];
-          if (tile === 'grass' || tile === 'grass2') {
+          if (tile === 'grass' || tile === 'grass2' || tile === 'cave_floor' || tile === 'snow' || tile === 'snow2' || tile === 'ash' || tile === 'rainbow_grass') {
             candidates.push({ x: c, y: r });
           }
         }
@@ -757,9 +1092,20 @@
 
       const totalCollected = Object.values(state.collection).reduce((a, b) => a + b, 0);
 
-      if (totalCollected >= 5 && !state.unlockedZones.includes('heart')) {
-        state.unlockedZones.push('heart');
-        state.unlockEffect = { timer: 0, zone: 'heart' };
+      const unlockThresholds = [
+        { zone: 'heart', count: 5 },
+        { zone: 'enchanted', count: 8 },
+        { zone: 'crystal', count: 12 },
+        { zone: 'snowy', count: 16 },
+        { zone: 'volcano', count: 20 },
+        { zone: 'rainbow', count: 25 },
+      ];
+
+      for (const u of unlockThresholds) {
+        if (totalCollected >= u.count && !state.unlockedZones.includes(u.zone)) {
+          state.unlockedZones.push(u.zone);
+          state.unlockEffect = { timer: 0, zone: u.zone };
+        }
       }
     }
 
@@ -979,7 +1325,7 @@
       state.unlockEffect = null;
 
       if (mode === 'freeplay') {
-        state.unlockedZones = ['meadow', 'heart'];
+        state.unlockedZones = ['meadow', 'heart', 'enchanted', 'crystal', 'snowy', 'volcano', 'rainbow'];
       } else {
         state.unlockedZones = ['meadow'];
       }
@@ -1019,6 +1365,27 @@
         p.vx = (Math.random() - 0.5) * 15;
         p.color = '#ff69b4';
         p.isHeart = true;
+      } else if (zoneKey === 'enchanted') {
+        p.vy = Math.random() * 8 + 3;
+        p.vx = (Math.random() - 0.5) * 20;
+        p.color = ['#1a5c14', '#E040FB', '#558B2F', '#90EE90'][Math.floor(Math.random() * 4)];
+      } else if (zoneKey === 'crystal') {
+        p.vy = -(Math.random() * 5 + 2);
+        p.vx = (Math.random() - 0.5) * 10;
+        p.color = ['#E1BEE7', '#64B5F6', '#F48FB1', '#fff'][Math.floor(Math.random() * 4)];
+      } else if (zoneKey === 'snowy') {
+        p.vy = Math.random() * 15 + 5;
+        p.vx = (Math.random() - 0.5) * 25;
+        p.color = '#fff';
+      } else if (zoneKey === 'volcano') {
+        p.vy = -(Math.random() * 20 + 10);
+        p.vx = (Math.random() - 0.5) * 20;
+        p.color = ['#FF6F00', '#E65100', '#BF360C', '#FFD700'][Math.floor(Math.random() * 4)];
+      } else if (zoneKey === 'rainbow') {
+        p.vy = -(Math.random() * 10 + 5);
+        p.vx = (Math.random() - 0.5) * 20;
+        const rainbowHue = Math.floor(Math.random() * 360);
+        p.color = 'hsl(' + rainbowHue + ', 80%, 65%)';
       }
 
       state.particles.push(p);
