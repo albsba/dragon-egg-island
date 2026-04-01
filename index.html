@@ -457,6 +457,7 @@
     state.hatching = [];
     state.unlockEffect = null;
     state.mode = 'adventure';
+    state.particles = [];
 
     // ============================================================
     // GAME LOGIC
@@ -526,6 +527,7 @@
           p.y = MAP_ROWS - 2;
         }
       }
+      state.particles = [];
       spawnEggsForZone(zoneKey);
     }
 
@@ -694,6 +696,75 @@
     }
 
     // ============================================================
+    // PARTICLES
+    // ============================================================
+    const MAX_PARTICLES = 30;
+
+    function spawnParticle(zoneKey) {
+      const p = {
+        x: Math.random() * CANVAS_W,
+        y: Math.random() * CANVAS_H,
+        vx: (Math.random() - 0.5) * 20,
+        vy: -Math.random() * 15 - 5,
+        life: Math.random() * 3 + 2,
+        maxLife: 0,
+        size: Math.random() * 3 + 2,
+        type: zoneKey,
+      };
+      p.maxLife = p.life;
+
+      if (zoneKey === 'meadow') {
+        p.vy = Math.random() * 10 + 5;
+        p.vx = (Math.random() - 0.5) * 30;
+        p.color = ['#e74c3c', '#f1c40f', '#e84393', '#fff'][Math.floor(Math.random() * 4)];
+      } else if (zoneKey === 'heart') {
+        p.vy = -(Math.random() * 10 + 5);
+        p.vx = (Math.random() - 0.5) * 15;
+        p.color = '#ff69b4';
+        p.isHeart = true;
+      }
+
+      state.particles.push(p);
+    }
+
+    function updateParticles(dt) {
+      if (state.particles.length < MAX_PARTICLES && Math.random() < 0.1) {
+        spawnParticle(state.currentZone);
+      }
+
+      for (let i = state.particles.length - 1; i >= 0; i--) {
+        const p = state.particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= dt;
+
+        if (p.life <= 0 || p.y < 0 || p.y > CANVAS_H || p.x < 0 || p.x > CANVAS_W) {
+          state.particles.splice(i, 1);
+        }
+      }
+    }
+
+    function drawParticles() {
+      for (const p of state.particles) {
+        const alpha = Math.min(1, p.life / (p.maxLife * 0.3));
+        ctx.globalAlpha = alpha * 0.6;
+
+        if (p.isHeart) {
+          ctx.fillStyle = p.color;
+          ctx.font = (p.size * 3) + 'px serif';
+          ctx.textAlign = 'left';
+          ctx.fillText('\u2665', p.x, p.y);
+        } else {
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // ============================================================
     // CANVAS SETUP
     // ============================================================
     const canvas = document.getElementById('game');
@@ -719,6 +790,7 @@
         updateHatching(dt);
         updateDragons(dt);
         updateUnlockEffect(dt);
+        updateParticles(dt);
       }
 
       // Clear screen
@@ -728,6 +800,7 @@
       // Draw
       if (state.screen === 'playing') {
         drawZone(ZONES[state.currentZone]);
+        drawParticles();
         drawDragons();
         drawPlayers();
         drawEggs();
