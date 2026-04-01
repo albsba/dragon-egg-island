@@ -178,8 +178,16 @@
 
   <!-- Title screen touch buttons (only visible on title screen + touch) -->
   <div id="title-touch-btns">
-    <button class="title-touch-btn" id="btn-adventure">Adventure</button>
-    <button class="title-touch-btn" id="btn-freeplay">Free Play</button>
+    <!-- Step: mode -->
+    <button class="title-touch-btn" id="btn-1p">1 Player</button>
+    <button class="title-touch-btn" id="btn-2p-local">2 Players - Same iPad</button>
+    <button class="title-touch-btn" id="btn-2p-online" style="opacity:0.4;pointer-events:none;">2 Players - 2 iPads (Soon)</button>
+    <!-- Step: character -->
+    <button class="title-touch-btn" id="btn-harper" style="display:none;">Harper</button>
+    <button class="title-touch-btn" id="btn-audrey" style="display:none;">Audrey</button>
+    <!-- Step: gametype -->
+    <button class="title-touch-btn" id="btn-adventure" style="display:none;">Adventure</button>
+    <button class="title-touch-btn" id="btn-freeplay" style="display:none;">Free Play</button>
   </div>
 
   <script>
@@ -782,7 +790,7 @@
     }
 
     function drawPlayers() {
-      for (const p of players) {
+      for (const p of getActivePlayers()) {
         drawSprite(p.sprite, p.x * TILE, (p.y + UI_ROWS) * TILE, TILE);
 
         if (p.name === 'Harper') {
@@ -877,10 +885,17 @@
       // Player labels
       ctx.textAlign = 'right';
       ctx.font = '11px monospace';
-      ctx.fillStyle = players[0].color;
-      ctx.fillText(players[0].name + ': Arrows', CANVAS_W - 10, 18);
-      ctx.fillStyle = players[1].color;
-      ctx.fillText(players[1].name + ': WASD', CANVAS_W - 10, 34);
+      if (state.activePlayerCount === 1) {
+        const ap = players[state.activePlayer];
+        const ctrlHint = state.activePlayer === 0 ? 'Arrows' : 'WASD';
+        ctx.fillStyle = ap.color;
+        ctx.fillText(ap.name + ': ' + ctrlHint, CANVAS_W - 10, 18);
+      } else {
+        ctx.fillStyle = players[0].color;
+        ctx.fillText(players[0].name + ': Arrows', CANVAS_W - 10, 18);
+        ctx.fillStyle = players[1].color;
+        ctx.fillText(players[1].name + ': WASD', CANVAS_W - 10, 34);
+      }
 
       // Adventure mode unlock progress
       if (state.mode === 'adventure') {
@@ -949,6 +964,11 @@
       mode: null,
       time: 0,
       titleSelection: 0,
+      playerMode: null,      // '1p', '2p-local', '2p-online'
+      selectedChar: null,    // 'harper' or 'audrey' (for 1p mode)
+      titleStep: 'mode',     // 'mode', 'character', 'gametype'
+      activePlayerCount: 2,
+      activePlayer: null,
     };
 
     const players = [
@@ -1022,7 +1042,7 @@
         if (state.currentZone !== conn.from) continue;
         if (conn.unlockRequired && !state.unlockedZones.includes(conn.to)) continue;
 
-        for (const p of players) {
+        for (const p of getActivePlayers()) {
           const atEdge =
             (conn.edge === 'bottom' && p.y >= MAP_ROWS - 1) ||
             (conn.edge === 'top' && p.y <= 0);
@@ -1040,7 +1060,7 @@
 
     function transitionToZone(zoneKey, fromEdge) {
       state.currentZone = zoneKey;
-      for (const p of players) {
+      for (const p of getActivePlayers()) {
         if (fromEdge === 'bottom') {
           p.y = 1;
         } else {
@@ -1054,7 +1074,7 @@
     function checkEggCollection() {
       for (let i = state.eggs.length - 1; i >= 0; i--) {
         const egg = state.eggs[i];
-        for (const p of players) {
+        for (const p of getActivePlayers()) {
           if (p.x === egg.x && p.y === egg.y) {
             state.hatching.push({
               type: egg.type,
@@ -1073,9 +1093,11 @@
     function updateDragons(dt) {
       for (let i = 0; i < state.dragons.length; i++) {
         const d = state.dragons[i];
+        // In 1p mode, all dragons follow the single active player
+        const leaderPlayerIndex = state.activePlayerCount === 1 ? state.activePlayer : d.followPlayer;
         const leader = i === 0
-          ? players[d.followPlayer]
-          : (state.dragons[i - 1].followPlayer === d.followPlayer ? state.dragons[i - 1] : players[d.followPlayer]);
+          ? players[leaderPlayerIndex]
+          : (state.dragons[i - 1].followPlayer === leaderPlayerIndex ? state.dragons[i - 1] : players[leaderPlayerIndex]);
 
         const dx = leader.x - d.x;
         const dy = leader.y - d.y;
@@ -1132,7 +1154,7 @@
         } else if (h.phase === 'hatch' && h.timer > 0.6) {
           state.collection[h.type] = (state.collection[h.type] || 0) + 1;
 
-          const followPlayer = state.dragons.length % 2;
+          const followPlayer = state.activePlayerCount === 1 ? state.activePlayer : state.dragons.length % 2;
           state.dragons.push({
             type: h.type,
             followPlayer: followPlayer,
@@ -1193,7 +1215,15 @@
       return SOLID_TILES.includes(tile);
     }
 
+    function getActivePlayers() {
+      if (state.activePlayerCount === 1) {
+        return [players[state.activePlayer]];
+      }
+      return players;
+    }
+
     function isOccupiedByOtherPlayer(playerIndex, col, row) {
+      if (state.activePlayerCount === 1) return false;
       for (let i = 0; i < players.length; i++) {
         if (i !== playerIndex && players[i].x === col && players[i].y === row) return true;
       }
@@ -1201,8 +1231,11 @@
     }
 
     function updatePlayers(dt) {
-      for (let i = 0; i < players.length; i++) {
-        const p = players[i];
+      const activePlayers = getActivePlayers();
+      for (let ai = 0; ai < activePlayers.length; ai++) {
+        const p = activePlayers[ai];
+        // Find the real player index for isOccupiedByOtherPlayer
+        const pi = players.indexOf(p);
         p.moveTimer -= dt;
         if (p.moveTimer > 0) continue;
 
@@ -1212,14 +1245,14 @@
         let nx = p.x + input.dx;
         let ny = p.y + input.dy;
 
-        if (!isSolid(state.currentZone, nx, ny) && !isOccupiedByOtherPlayer(i, nx, ny)) {
+        if (!isSolid(state.currentZone, nx, ny) && !isOccupiedByOtherPlayer(pi, nx, ny)) {
           p.x = nx;
           p.y = ny;
           p.moveTimer = MOVE_DELAY;
-        } else if (input.dx !== 0 && !isSolid(state.currentZone, p.x + input.dx, p.y) && !isOccupiedByOtherPlayer(i, p.x + input.dx, p.y)) {
+        } else if (input.dx !== 0 && !isSolid(state.currentZone, p.x + input.dx, p.y) && !isOccupiedByOtherPlayer(pi, p.x + input.dx, p.y)) {
           p.x += input.dx;
           p.moveTimer = MOVE_DELAY;
-        } else if (input.dy !== 0 && !isSolid(state.currentZone, p.x, p.y + input.dy) && !isOccupiedByOtherPlayer(i, p.x, p.y + input.dy)) {
+        } else if (input.dy !== 0 && !isSolid(state.currentZone, p.x, p.y + input.dy) && !isOccupiedByOtherPlayer(pi, p.x, p.y + input.dy)) {
           p.y += input.dy;
           p.moveTimer = MOVE_DELAY;
         }
@@ -1246,71 +1279,207 @@
       ctx.fillStyle = '#FFD700';
       ctx.font = 'bold 36px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('Dragon Egg Island', CANVAS_W / 2, 150);
+      ctx.fillText('Dragon Egg Island', CANVAS_W / 2, 100);
 
-      ctx.fillStyle = '#aaa';
-      ctx.font = '14px monospace';
-      ctx.fillText('A cooperative dragon collecting adventure', CANVAS_W / 2, 185);
-
-      // Characters
-      drawSprite(SPRITES.harper, CANVAS_W / 2 - 80, 210, 48);
-      drawSprite(SPRITES.audrey, CANVAS_W / 2 + 32, 210, 48);
+      // Characters (always shown)
+      drawSprite(SPRITES.harper, CANVAS_W / 2 - 80, 120, 48);
+      drawSprite(SPRITES.audrey, CANVAS_W / 2 + 32, 120, 48);
 
       ctx.font = '12px monospace';
       ctx.fillStyle = '#87CEEB';
-      ctx.fillText('Harper', CANVAS_W / 2 - 56, 275);
+      ctx.fillText('Harper', CANVAS_W / 2 - 56, 185);
       ctx.fillStyle = '#9B59B6';
-      ctx.fillText('Audrey', CANVAS_W / 2 + 56, 275);
+      ctx.fillText('Audrey', CANVAS_W / 2 + 56, 185);
 
-      // Mode selection
-      const advSel = state.titleSelection === 0;
-      const fpSel = state.titleSelection === 1;
+      if (state.titleStep === 'mode') {
+        // --- Step: Choose player mode ---
+        ctx.fillStyle = '#aaa';
+        ctx.font = '15px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Choose how to play:', CANVAS_W / 2, 235);
 
-      ctx.fillStyle = advSel ? '#FFD700' : '#666';
-      ctx.font = (advSel ? 'bold ' : '') + '20px monospace';
-      ctx.fillText(advSel ? '> Adventure <' : 'Adventure', CANVAS_W / 2, 340);
-      ctx.font = '11px monospace';
-      ctx.fillStyle = advSel ? '#ccc' : '#555';
-      ctx.fillText('Explore zones, collect eggs, unlock new areas!', CANVAS_W / 2, 360);
+        const onePlayerSel = state.titleSelection === 0;
+        const twoLocalSel  = state.titleSelection === 1;
 
-      ctx.fillStyle = fpSel ? '#FFD700' : '#666';
-      ctx.font = (fpSel ? 'bold ' : '') + '20px monospace';
-      ctx.fillText(fpSel ? '> Free Play <' : 'Free Play', CANVAS_W / 2, 410);
-      ctx.font = '11px monospace';
-      ctx.fillStyle = fpSel ? '#ccc' : '#555';
-      ctx.fillText('All zones open, just explore and have fun!', CANVAS_W / 2, 430);
+        ctx.fillStyle = onePlayerSel ? '#FFD700' : '#888';
+        ctx.font = (onePlayerSel ? 'bold ' : '') + '22px monospace';
+        ctx.fillText(onePlayerSel ? '> 1 Player <' : '1 Player', CANVAS_W / 2, 290);
 
-      // Controls hint
-      ctx.fillStyle = '#555';
-      ctx.font = '11px monospace';
-      ctx.fillText('Use Arrow Keys or WASD to select, then press Enter to start', CANVAS_W / 2, 510);
+        ctx.fillStyle = twoLocalSel ? '#FFD700' : '#888';
+        ctx.font = (twoLocalSel ? 'bold ' : '') + '22px monospace';
+        ctx.fillText(twoLocalSel ? '> 2 Players - Same iPad <' : '2 Players - Same iPad', CANVAS_W / 2, 345);
+
+        ctx.fillStyle = '#444';
+        ctx.font = '20px monospace';
+        ctx.fillText('2 Players - 2 iPads (Coming Soon)', CANVAS_W / 2, 400);
+
+        ctx.fillStyle = '#555';
+        ctx.font = '11px monospace';
+        ctx.fillText('Use Arrows/WASD to select, Enter to confirm', CANVAS_W / 2, 490);
+
+      } else if (state.titleStep === 'character') {
+        // --- Step: Choose character (1p only) ---
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 20px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Choose your character!', CANVAS_W / 2, 240);
+
+        const harperSel = state.titleSelection === 0;
+        const audreySel = state.titleSelection === 1;
+
+        // Harper option
+        const harperX = CANVAS_W / 2 - 130;
+        if (harperSel) {
+          ctx.fillStyle = 'rgba(135, 206, 235, 0.2)';
+          ctx.fillRect(harperX - 10, 255, 120, 110);
+          ctx.strokeStyle = '#87CEEB';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(harperX - 10, 255, 120, 110);
+        }
+        drawSprite(SPRITES.harper, harperX + 10, 270, 64);
+        ctx.fillStyle = harperSel ? '#87CEEB' : '#666';
+        ctx.font = (harperSel ? 'bold ' : '') + '16px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Harper', harperX + 50, 350);
+        if (harperSel) {
+          ctx.fillStyle = '#FFD700';
+          ctx.font = '13px monospace';
+          ctx.fillText('(Arrow Keys)', harperX + 50, 370);
+        }
+
+        // Audrey option
+        const audreyX = CANVAS_W / 2 + 10;
+        if (audreySel) {
+          ctx.fillStyle = 'rgba(155, 89, 182, 0.2)';
+          ctx.fillRect(audreyX - 10, 255, 120, 110);
+          ctx.strokeStyle = '#9B59B6';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(audreyX - 10, 255, 120, 110);
+        }
+        drawSprite(SPRITES.audrey, audreyX + 10, 270, 64);
+        ctx.fillStyle = audreySel ? '#9B59B6' : '#666';
+        ctx.font = (audreySel ? 'bold ' : '') + '16px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Audrey', audreyX + 50, 350);
+        if (audreySel) {
+          ctx.fillStyle = '#FFD700';
+          ctx.font = '13px monospace';
+          ctx.fillText('(WASD)', audreyX + 50, 370);
+        }
+
+        ctx.fillStyle = '#555';
+        ctx.font = '11px monospace';
+        ctx.fillText('Left/Right to choose  |  Enter to confirm  |  Esc/Left to go back', CANVAS_W / 2, 490);
+
+      } else if (state.titleStep === 'gametype') {
+        // --- Step: Choose game mode ---
+        ctx.fillStyle = '#aaa';
+        ctx.font = '15px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Choose your adventure:', CANVAS_W / 2, 235);
+
+        const advSel = state.titleSelection === 0;
+        const fpSel  = state.titleSelection === 1;
+
+        ctx.fillStyle = advSel ? '#FFD700' : '#666';
+        ctx.font = (advSel ? 'bold ' : '') + '22px monospace';
+        ctx.fillText(advSel ? '> Adventure <' : 'Adventure', CANVAS_W / 2, 300);
+        ctx.font = '11px monospace';
+        ctx.fillStyle = advSel ? '#ccc' : '#555';
+        ctx.fillText('Explore zones, collect eggs, unlock new areas!', CANVAS_W / 2, 322);
+
+        ctx.fillStyle = fpSel ? '#FFD700' : '#666';
+        ctx.font = (fpSel ? 'bold ' : '') + '22px monospace';
+        ctx.fillText(fpSel ? '> Free Play <' : 'Free Play', CANVAS_W / 2, 380);
+        ctx.font = '11px monospace';
+        ctx.fillStyle = fpSel ? '#ccc' : '#555';
+        ctx.fillText('All zones open, just explore and have fun!', CANVAS_W / 2, 402);
+
+        ctx.fillStyle = '#555';
+        ctx.font = '11px monospace';
+        ctx.fillText('Use Arrows/WASD to select  |  Enter to confirm  |  Left/Esc to go back', CANVAS_W / 2, 490);
+      }
 
       // Decorative eggs
       const eggTypes = ['fire', 'nature', 'love'];
       for (let i = 0; i < 3; i++) {
         const bob = Math.sin(state.time * 2 + i * 2) * 4;
-        drawSprite(EGG_SPRITES[eggTypes[i]], 100 + i * 40, 480 + bob, 24);
-        drawSprite(EGG_SPRITES[eggTypes[i]], CANVAS_W - 180 + i * 40, 480 + bob, 24);
+        drawSprite(EGG_SPRITES[eggTypes[i]], 100 + i * 40, 520 + bob, 24);
+        drawSprite(EGG_SPRITES[eggTypes[i]], CANVAS_W - 180 + i * 40, 520 + bob, 24);
       }
     }
 
     function updateTitleScreen() {
-      if (keys['ArrowUp'] || keys['w']) {
-        state.titleSelection = 0;
-        keys['ArrowUp'] = false;
-        keys['w'] = false;
-      }
-      if (keys['ArrowDown'] || keys['s']) {
-        state.titleSelection = 1;
-        keys['ArrowDown'] = false;
-        keys['s'] = false;
-      }
-      if (keys['Enter'] || keys[' '] || keys['ArrowRight'] || keys['d']) {
-        startGame(state.titleSelection === 0 ? 'adventure' : 'freeplay');
-        keys['Enter'] = false;
-        keys[' '] = false;
-        keys['ArrowRight'] = false;
-        keys['d'] = false;
+      if (state.titleStep === 'mode') {
+        if (keys['ArrowUp'] || keys['w']) {
+          state.titleSelection = 0;
+          keys['ArrowUp'] = false; keys['w'] = false;
+        }
+        if (keys['ArrowDown'] || keys['s']) {
+          state.titleSelection = 1;
+          keys['ArrowDown'] = false; keys['s'] = false;
+        }
+        if (keys['Enter'] || keys[' '] || keys['ArrowRight']) {
+          keys['Enter'] = false; keys[' '] = false; keys['ArrowRight'] = false;
+          if (state.titleSelection === 0) {
+            state.playerMode = '1p';
+            state.titleStep = 'character';
+            state.titleSelection = 0;
+          } else if (state.titleSelection === 1) {
+            state.playerMode = '2p-local';
+            state.titleStep = 'gametype';
+            state.titleSelection = 0;
+          }
+          updateTitleTouchUI();
+        }
+
+      } else if (state.titleStep === 'character') {
+        if (keys['ArrowLeft'] || keys['a']) {
+          state.titleSelection = 0;
+          keys['ArrowLeft'] = false; keys['a'] = false;
+        }
+        if (keys['ArrowRight'] || keys['d']) {
+          state.titleSelection = 1;
+          keys['ArrowRight'] = false; keys['d'] = false;
+        }
+        if (keys['Escape'] || keys['ArrowUp'] || keys['w']) {
+          state.titleStep = 'mode';
+          state.titleSelection = 0;
+          keys['Escape'] = false; keys['ArrowUp'] = false; keys['w'] = false;
+          updateTitleTouchUI();
+        }
+        if (keys['Enter'] || keys[' ']) {
+          keys['Enter'] = false; keys[' '] = false;
+          state.selectedChar = state.titleSelection === 0 ? 'harper' : 'audrey';
+          state.titleStep = 'gametype';
+          state.titleSelection = 0;
+          updateTitleTouchUI();
+        }
+
+      } else if (state.titleStep === 'gametype') {
+        if (keys['ArrowUp'] || keys['w']) {
+          state.titleSelection = 0;
+          keys['ArrowUp'] = false; keys['w'] = false;
+        }
+        if (keys['ArrowDown'] || keys['s']) {
+          state.titleSelection = 1;
+          keys['ArrowDown'] = false; keys['s'] = false;
+        }
+        if (keys['Escape'] || keys['ArrowLeft']) {
+          if (state.playerMode === '1p') {
+            state.titleStep = 'character';
+          } else {
+            state.titleStep = 'mode';
+          }
+          state.titleSelection = 0;
+          keys['Escape'] = false; keys['ArrowLeft'] = false;
+          updateTitleTouchUI();
+        }
+        if (keys['Enter'] || keys[' ']) {
+          keys['Enter'] = false; keys[' '] = false;
+          startGame(state.titleSelection === 0 ? 'adventure' : 'freeplay');
+          updateTitleTouchUI();
+        }
       }
     }
 
@@ -1331,10 +1500,25 @@
         state.unlockedZones = ['meadow'];
       }
 
-      players[0].x = 11;
-      players[0].y = 7;
-      players[1].x = 13;
-      players[1].y = 7;
+      if (state.playerMode === '1p') {
+        state.activePlayerCount = 1;
+        if (state.selectedChar === 'harper') {
+          state.activePlayer = 0;
+          players[0].x = 12;
+          players[0].y = 7;
+        } else {
+          state.activePlayer = 1;
+          players[1].x = 12;
+          players[1].y = 7;
+        }
+      } else {
+        state.activePlayerCount = 2;
+        state.activePlayer = null;
+        players[0].x = 11;
+        players[0].y = 7;
+        players[1].x = 13;
+        players[1].y = 7;
+      }
 
       spawnEggsForZone('meadow');
     }
@@ -1450,12 +1634,7 @@
     // ============================================================
     const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
-    if (isTouchDevice) {
-      // Show d-pads
-      document.getElementById('dpad-left').classList.add('visible');
-      document.getElementById('dpad-right').classList.add('visible');
-      // Title buttons start hidden; shown by updateTitleTouchUI()
-    }
+    // D-pad visibility is managed by updateTitleTouchUI()
 
     // Wire each d-pad button: touchstart sets key true, touchend sets false.
     // We attach listeners to each button individually so multi-touch works.
@@ -1484,37 +1663,102 @@
     // Title screen touch buttons
     const titleTouchBtns = document.getElementById('title-touch-btns');
 
+    // IDs for each step's buttons
+    const TITLE_STEP_BTNS = {
+      mode:      ['btn-1p', 'btn-2p-local', 'btn-2p-online'],
+      character: ['btn-harper', 'btn-audrey'],
+      gametype:  ['btn-adventure', 'btn-freeplay'],
+    };
+
     function updateTitleTouchUI() {
-      if (!isTouchDevice) return;
+      const dpadLeft  = document.getElementById('dpad-left');
+      const dpadRight = document.getElementById('dpad-right');
+
       if (state.screen === 'title') {
         titleTouchBtns.classList.add('visible');
-        document.getElementById('dpad-left').classList.remove('visible');
-        document.getElementById('dpad-right').classList.remove('visible');
+        dpadLeft.classList.remove('visible');
+        dpadRight.classList.remove('visible');
+
+        // Show only the buttons for the current step
+        const allStepBtns = [].concat(
+          TITLE_STEP_BTNS.mode,
+          TITLE_STEP_BTNS.character,
+          TITLE_STEP_BTNS.gametype
+        );
+        allStepBtns.forEach(function(id) {
+          const el = document.getElementById(id);
+          if (el) el.style.display = 'none';
+        });
+        const currentBtns = TITLE_STEP_BTNS[state.titleStep] || [];
+        currentBtns.forEach(function(id) {
+          const el = document.getElementById(id);
+          if (el) el.style.display = '';
+        });
       } else {
         titleTouchBtns.classList.remove('visible');
-        document.getElementById('dpad-left').classList.add('visible');
-        document.getElementById('dpad-right').classList.add('visible');
+        // Show appropriate d-pad(s)
+        if (!isTouchDevice) return;
+        if (state.activePlayerCount === 1) {
+          if (state.activePlayer === 0) {
+            dpadLeft.classList.add('visible');
+            dpadRight.classList.remove('visible');
+          } else {
+            dpadLeft.classList.remove('visible');
+            dpadRight.classList.add('visible');
+          }
+        } else {
+          dpadLeft.classList.add('visible');
+          dpadRight.classList.add('visible');
+        }
       }
     }
 
-    document.getElementById('btn-adventure').addEventListener('touchstart', function(e) {
-      e.preventDefault();
-      startGame('adventure');
-      updateTitleTouchUI();
-    }, { passive: false });
+    // ---- Touch button wiring ----
 
-    document.getElementById('btn-freeplay').addEventListener('touchstart', function(e) {
-      e.preventDefault();
-      startGame('freeplay');
-      updateTitleTouchUI();
-    }, { passive: false });
+    function titleTouchBtn(id, handler) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        handler();
+      }, { passive: false });
+      el.addEventListener('click', handler);
+    }
 
-    // Also handle click for non-touch devices testing
-    document.getElementById('btn-adventure').addEventListener('click', function() {
+    titleTouchBtn('btn-1p', function() {
+      state.playerMode = '1p';
+      state.titleStep = 'character';
+      state.titleSelection = 0;
+      updateTitleTouchUI();
+    });
+
+    titleTouchBtn('btn-2p-local', function() {
+      state.playerMode = '2p-local';
+      state.titleStep = 'gametype';
+      state.titleSelection = 0;
+      updateTitleTouchUI();
+    });
+
+    titleTouchBtn('btn-harper', function() {
+      state.selectedChar = 'harper';
+      state.titleStep = 'gametype';
+      state.titleSelection = 0;
+      updateTitleTouchUI();
+    });
+
+    titleTouchBtn('btn-audrey', function() {
+      state.selectedChar = 'audrey';
+      state.titleStep = 'gametype';
+      state.titleSelection = 0;
+      updateTitleTouchUI();
+    });
+
+    titleTouchBtn('btn-adventure', function() {
       startGame('adventure');
       updateTitleTouchUI();
     });
-    document.getElementById('btn-freeplay').addEventListener('click', function() {
+
+    titleTouchBtn('btn-freeplay', function() {
       startGame('freeplay');
       updateTitleTouchUI();
     });
