@@ -316,6 +316,7 @@
     <!-- Step: gametype -->
     <button class="title-touch-btn" id="btn-adventure" style="display:none;">Adventure</button>
     <button class="title-touch-btn" id="btn-freeplay" style="display:none;">Free Play</button>
+    <button class="title-touch-btn" id="btn-battle" style="display:none;">Dragon Battle</button>
     <!-- Step: online -->
     <button class="title-touch-btn" id="btn-create-room" style="display:none;">Create Room</button>
     <button class="title-touch-btn" id="btn-join-room" style="display:none;">Join Room</button>
@@ -324,6 +325,13 @@
   <!-- Room code overlay (for hosting/joining) -->
   <div id="room-code-overlay">
     <!-- Content is set dynamically by JS -->
+  </div>
+
+  <!-- Dragon select touch controls -->
+  <div id="dragon-select-touch" style="display:none; position: fixed; bottom: 30px; left: 0; right: 0; z-index: 20; text-align: center;">
+    <button id="dragon-prev" style="padding: 14px 28px; font-size: 22px; font-family: monospace; font-weight: bold; border: 2px solid #FFD700; border-radius: 10px; background: rgba(26,26,46,0.85); color: #FFD700; cursor: pointer; margin: 0 10px; touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;">&#9664;</button>
+    <button id="dragon-confirm" style="padding: 14px 36px; font-size: 18px; font-family: monospace; font-weight: bold; border: 2px solid #FFD700; border-radius: 10px; background: rgba(26,26,46,0.85); color: #FFD700; cursor: pointer; margin: 0 10px; touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;">Select!</button>
+    <button id="dragon-next" style="padding: 14px 28px; font-size: 22px; font-family: monospace; font-weight: bold; border: 2px solid #FFD700; border-radius: 10px; background: rgba(26,26,46,0.85); color: #FFD700; cursor: pointer; margin: 0 10px; touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;">&#9654;</button>
   </div>
 
   <script>
@@ -1156,6 +1164,26 @@
     state.guestConnected = false;
     state.hostConnected = false;
 
+    // Battle mode state
+    state.battle = {
+      wave: 0,
+      enemies: [],
+      shots: [],
+      drops: [],
+      effects: [],
+      waveState: 'waiting',
+      waveTimer: 0,
+      playerDragons: [null, null],
+      battlePlayers: [
+        { x: CANVAS_W / 2 - 40, hearts: MAX_HEARTS, superMeter: 0, shotTimer: 0, respawnTimer: 0, invTimer: 0, shieldActive: false, speedBoost: 0, alive: true },
+        { x: CANVAS_W / 2 + 40, hearts: MAX_HEARTS, superMeter: 0, shotTimer: 0, respawnTimer: 0, invTimer: 0, shieldActive: false, speedBoost: 0, alive: true },
+      ],
+      hitStreak: [0, 0],
+      superActive: [null, null],
+    };
+    state.dragonSelectPlayer = 0;
+    state.dragonSelectIndex = 0;
+
     // ============================================================
     // FIREBASE NETWORKING
     // ============================================================
@@ -1906,20 +1934,28 @@
 
         const advSel = state.titleSelection === 0;
         const fpSel  = state.titleSelection === 1;
+        const btSel  = state.titleSelection === 2;
 
         ctx.fillStyle = advSel ? '#FFD700' : '#666';
         ctx.font = (advSel ? 'bold ' : '') + '22px monospace';
-        ctx.fillText(advSel ? '> Adventure <' : 'Adventure', CANVAS_W / 2, 300);
+        ctx.fillText(advSel ? '> Adventure <' : 'Adventure', CANVAS_W / 2, 290);
         ctx.font = '11px monospace';
         ctx.fillStyle = advSel ? '#ccc' : '#555';
-        ctx.fillText('Explore zones, collect eggs, unlock new areas!', CANVAS_W / 2, 322);
+        ctx.fillText('Explore zones, collect eggs, unlock new areas!', CANVAS_W / 2, 310);
 
         ctx.fillStyle = fpSel ? '#FFD700' : '#666';
         ctx.font = (fpSel ? 'bold ' : '') + '22px monospace';
-        ctx.fillText(fpSel ? '> Free Play <' : 'Free Play', CANVAS_W / 2, 380);
+        ctx.fillText(fpSel ? '> Free Play <' : 'Free Play', CANVAS_W / 2, 360);
         ctx.font = '11px monospace';
         ctx.fillStyle = fpSel ? '#ccc' : '#555';
-        ctx.fillText('All zones open, just explore and have fun!', CANVAS_W / 2, 402);
+        ctx.fillText('All zones open, just explore and have fun!', CANVAS_W / 2, 380);
+
+        ctx.fillStyle = btSel ? '#FFD700' : '#666';
+        ctx.font = (btSel ? 'bold ' : '') + '22px monospace';
+        ctx.fillText(btSel ? '> Dragon Battle <' : 'Dragon Battle', CANVAS_W / 2, 430);
+        ctx.font = '11px monospace';
+        ctx.fillStyle = btSel ? '#ccc' : '#555';
+        ctx.fillText('Fight waves of shadow enemies with your dragon!', CANVAS_W / 2, 450);
 
         ctx.fillStyle = '#555';
         ctx.font = '11px monospace';
@@ -2040,11 +2076,11 @@
 
       } else if (state.titleStep === 'gametype') {
         if (keys['ArrowUp'] || keys['w']) {
-          state.titleSelection = 0;
+          state.titleSelection = Math.max(0, state.titleSelection - 1);
           keys['ArrowUp'] = false; keys['w'] = false;
         }
         if (keys['ArrowDown'] || keys['s']) {
-          state.titleSelection = 1;
+          state.titleSelection = Math.min(2, state.titleSelection + 1);
           keys['ArrowDown'] = false; keys['s'] = false;
         }
         if (keys['Escape'] || keys['ArrowLeft']) {
@@ -2064,8 +2100,16 @@
         }
         if (keys['Enter'] || keys[' ']) {
           keys['Enter'] = false; keys[' '] = false;
-          startGame(state.titleSelection === 0 ? 'adventure' : 'freeplay');
-          updateTitleTouchUI();
+          if (state.titleSelection === 2) {
+            // Dragon Battle
+            state.screen = 'dragonSelect';
+            state.dragonSelectPlayer = 0;
+            state.dragonSelectIndex = 0;
+            updateTitleTouchUI();
+          } else {
+            startGame(state.titleSelection === 0 ? 'adventure' : 'freeplay');
+            updateTitleTouchUI();
+          }
         }
       }
     }
@@ -2208,6 +2252,58 @@
     }
 
     // ============================================================
+    // BATTLE CONSTANTS
+    // ============================================================
+    const DRAGON_CONFIGS = {
+      fire:    { name: 'Fire Dragon',    color: '#FF4500', shotSpeed: 500, shotRate: 4, shotType: 'single',  superName: 'Flame Wave' },
+      ice:     { name: 'Ice Dragon',     color: '#4FC3F7', shotSpeed: 400, shotRate: 3.5, shotType: 'spread', superName: 'Freeze Blast' },
+      nature:  { name: 'Nature Dragon',  color: '#43A047', shotSpeed: 400, shotRate: 3.5, shotType: 'pierce', superName: 'Vine Burst' },
+      love:    { name: 'Love Dragon',    color: '#E91E63', shotSpeed: 300, shotRate: 3, shotType: 'wide',    superName: 'Heal Wave' },
+      shadow:  { name: 'Shadow Dragon',  color: '#5E35B1', shotSpeed: 500, shotRate: 4.5, shotType: 'single', superName: 'Shadow Cloak' },
+      star:    { name: 'Star Dragon',    color: '#FFC107', shotSpeed: 400, shotRate: 3.5, shotType: 'bounce', superName: 'Supernova' },
+      rainbow: { name: 'Rainbow Dragon', color: '#FF6B6B', shotSpeed: 350, shotRate: 6, shotType: 'beam',    superName: 'Rainbow Wave' },
+    };
+
+    const ENEMY_TYPES = {
+      shadowPuff:     { name: 'Shadow Puff',     hp: 1, speed: 40,  points: 10, color: '#9575CD', size: 24, pattern: 'straight' },
+      corruptedEgg:   { name: 'Corrupted Egg',   hp: 1, speed: 35,  points: 10, color: '#7E57C2', size: 20, pattern: 'wobble' },
+      darkButterfly:  { name: 'Dark Butterfly',   hp: 1, speed: 45,  points: 15, color: '#AB47BC', size: 18, pattern: 'zigzag' },
+      shadowSlime:    { name: 'Shadow Slime',     hp: 2, speed: 50,  points: 25, color: '#7B1FA2', size: 22, pattern: 'bounce' },
+      corruptedDragon:{ name: 'Corrupted Dragon', hp: 2, speed: 55,  points: 30, color: '#6A1B9A', size: 24, pattern: 'swoop' },
+      darkMushroom:   { name: 'Dark Mushroom',    hp: 1, speed: 45,  points: 20, color: '#8E24AA', size: 20, pattern: 'straight', splits: true },
+      shadowKnight:   { name: 'Shadow Knight',    hp: 3, speed: 35,  points: 40, color: '#4A148C', size: 26, pattern: 'formation' },
+      stormCloud:     { name: 'Storm Cloud',      hp: 4, speed: 25,  points: 50, color: '#311B92', size: 32, pattern: 'straight', shoots: true },
+      elderDragon:    { name: 'Elder Dragon',     hp: 10, speed: 30, points: 200, color: '#1A0033', size: 48, pattern: 'boss' },
+    };
+
+    const WAVE_DEFS = [
+      { enemies: ['shadowPuff','shadowPuff','shadowPuff'] },
+      { enemies: ['shadowPuff','corruptedEgg','shadowPuff','corruptedEgg'] },
+      { enemies: ['darkButterfly','darkButterfly','shadowPuff','corruptedEgg'] },
+      { enemies: ['shadowPuff','darkButterfly','corruptedEgg','darkButterfly','shadowPuff'] },
+      { enemies: ['elderDragon'] },
+      { enemies: ['shadowSlime','shadowSlime','shadowPuff','shadowPuff','darkButterfly'] },
+      { enemies: ['corruptedDragon','corruptedDragon','shadowSlime','shadowPuff'] },
+      { enemies: ['darkMushroom','darkMushroom','shadowSlime','corruptedDragon'] },
+      { enemies: ['shadowSlime','corruptedDragon','darkMushroom','shadowSlime','darkButterfly','darkButterfly'] },
+      { enemies: ['elderDragon'] },
+    ];
+
+    const BATTLE_PLAYER_SPEED = 200;
+    const BATTLE_PLAYER_Y = CANVAS_H - 80;
+    const MAX_HEARTS = 5;
+    const RESPAWN_TIME = 2;
+    const INVINCIBLE_TIME = 3;
+    const SUPER_METER_MAX = 100;
+
+    const DROP_TYPES = {
+      heart:      { color: '#FF5252', chance: 0.30, symbol: '\u2665' },
+      superBoost: { color: '#FFD700', chance: 0.15, symbol: '\u2605' },
+      speedStar:  { color: '#00E5FF', chance: 0.10, symbol: '\u2736' },
+      shield:     { color: '#69F0AE', chance: 0.10, symbol: '\u25CE' },
+    };
+
+    // ============================================================
     // CANVAS SETUP & SCALING
     // ============================================================
     const canvas = document.getElementById('game');
@@ -2261,7 +2357,7 @@
     const TITLE_STEP_BTNS = {
       mode:      ['btn-1p', 'btn-2p-local', 'btn-2p-online'],
       character: ['btn-harper', 'btn-audrey'],
-      gametype:  ['btn-adventure', 'btn-freeplay'],
+      gametype:  ['btn-adventure', 'btn-freeplay', 'btn-battle'],
       online:    ['btn-create-room', 'btn-join-room'],
     };
 
@@ -2291,6 +2387,12 @@
         });
       } else {
         titleTouchBtns.classList.remove('visible');
+        // Hide d-pads on dragon select and battle screens (they use their own controls)
+        if (state.screen === 'dragonSelect' || state.screen === 'battle') {
+          dpadLeft.classList.remove('visible');
+          dpadRight.classList.remove('visible');
+          return;
+        }
         // Show appropriate d-pad(s)
         if (!isTouchDevice) return;
         if (state.playerMode === '2p-online') {
@@ -2382,8 +2484,218 @@
       updateTitleTouchUI();
     });
 
+    titleTouchBtn('btn-battle', function() {
+      state.screen = 'dragonSelect';
+      state.dragonSelectPlayer = 0;
+      state.dragonSelectIndex = 0;
+      updateTitleTouchUI();
+    });
+
     // Show title touch UI on load if on touch device
     updateTitleTouchUI();
+
+    // ---- Dragon select touch wiring ----
+    const dragonSelectTouch = document.getElementById('dragon-select-touch');
+
+    (function() {
+      const prevBtn = document.getElementById('dragon-prev');
+      const nextBtn = document.getElementById('dragon-next');
+      const confirmBtn = document.getElementById('dragon-confirm');
+
+      function wireDragonTouch(el, handler) {
+        if (!el) return;
+        el.addEventListener('touchstart', function(e) { e.preventDefault(); handler(); }, { passive: false });
+        el.addEventListener('click', handler);
+      }
+
+      wireDragonTouch(prevBtn, function() {
+        keys['ArrowLeft'] = true;
+        setTimeout(function() { keys['ArrowLeft'] = false; }, 80);
+      });
+      wireDragonTouch(nextBtn, function() {
+        keys['ArrowRight'] = true;
+        setTimeout(function() { keys['ArrowRight'] = false; }, 80);
+      });
+      wireDragonTouch(confirmBtn, function() {
+        keys['Enter'] = true;
+        setTimeout(function() { keys['Enter'] = false; }, 80);
+      });
+    })();
+
+    function updateDragonSelectTouch() {
+      if (state.screen === 'dragonSelect' && isTouchDevice) {
+        dragonSelectTouch.style.display = '';
+      } else {
+        dragonSelectTouch.style.display = 'none';
+      }
+    }
+
+    // ============================================================
+    // DRAGON SELECT SCREEN
+    // ============================================================
+    const DRAGON_KEYS = Object.keys(DRAGON_CONFIGS); // ['fire','ice','nature','love','shadow','star','rainbow']
+
+    function drawDragonSelect() {
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+      // Stars background
+      for (let i = 0; i < 50; i++) {
+        const sx = (Math.sin(i * 127.1) * 0.5 + 0.5) * CANVAS_W;
+        const sy = (Math.cos(i * 311.7) * 0.5 + 0.5) * CANVAS_H;
+        const twinkle = Math.sin(state.time * 2 + i) * 0.5 + 0.5;
+        ctx.fillStyle = 'rgba(255, 255, 255, ' + (twinkle * 0.5) + ')';
+        ctx.fillRect(sx, sy, 2, 2);
+      }
+
+      // Title
+      const selectingPlayer = state.dragonSelectPlayer;
+      const playerName = selectingPlayer === 0 ? players[0].name : players[1].name;
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 24px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(playerName + ', choose your dragon!', CANVAS_W / 2, 60);
+
+      // Dragon row
+      const totalDragons = DRAGON_KEYS.length;
+      const spacing = 100;
+      const startX = CANVAS_W / 2 - ((totalDragons - 1) * spacing) / 2;
+
+      for (let i = 0; i < totalDragons; i++) {
+        const key = DRAGON_KEYS[i];
+        const cfg = DRAGON_CONFIGS[key];
+        const dx = startX + i * spacing;
+        const dy = 120;
+
+        // Highlight box on selected
+        if (i === state.dragonSelectIndex) {
+          ctx.strokeStyle = '#FFD700';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(dx - 24, dy - 8, 48, 56);
+        }
+
+        // Dragon sprite
+        drawSprite(DRAGON_SPRITES[key], dx - 16, dy, 32);
+
+        // Name underneath
+        ctx.fillStyle = i === state.dragonSelectIndex ? '#FFD700' : '#888';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(key.charAt(0).toUpperCase() + key.slice(1), dx, dy + 52);
+      }
+
+      // Large preview of selected dragon
+      const selKey = DRAGON_KEYS[state.dragonSelectIndex];
+      const selCfg = DRAGON_CONFIGS[selKey];
+
+      drawSprite(DRAGON_SPRITES[selKey], CANVAS_W / 2 - 48, 220, 96);
+
+      // Dragon info
+      ctx.fillStyle = selCfg.color;
+      ctx.font = 'bold 22px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(selCfg.name, CANVAS_W / 2, 350);
+
+      ctx.fillStyle = '#ccc';
+      ctx.font = '14px monospace';
+      ctx.fillText('Shot: ' + selCfg.shotType, CANVAS_W / 2, 380);
+      ctx.fillText('Super: ' + selCfg.superName, CANVAS_W / 2, 402);
+
+      // Show player 1's choice if player 2 is selecting
+      if (state.dragonSelectPlayer === 1 && state.battle.playerDragons[0] !== null) {
+        const p1Key = state.battle.playerDragons[0];
+        const p1Cfg = DRAGON_CONFIGS[p1Key];
+        ctx.fillStyle = '#888';
+        ctx.font = '13px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(players[0].name + ' chose: ' + p1Cfg.name, CANVAS_W / 2, 440);
+        drawSprite(DRAGON_SPRITES[p1Key], CANVAS_W / 2 - 16, 455, 32);
+      }
+
+      // Controls hint
+      ctx.fillStyle = '#555';
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Left/Right to browse  |  Enter/Space to select', CANVAS_W / 2, CANVAS_H - 30);
+    }
+
+    function updateDragonSelect() {
+      const totalDragons = DRAGON_KEYS.length;
+
+      if (keys['ArrowLeft'] || keys['a']) {
+        state.dragonSelectIndex = (state.dragonSelectIndex - 1 + totalDragons) % totalDragons;
+        keys['ArrowLeft'] = false; keys['a'] = false;
+      }
+      if (keys['ArrowRight'] || keys['d']) {
+        state.dragonSelectIndex = (state.dragonSelectIndex + 1) % totalDragons;
+        keys['ArrowRight'] = false; keys['d'] = false;
+      }
+      if (keys['Enter'] || keys[' ']) {
+        keys['Enter'] = false; keys[' '] = false;
+        const chosenDragon = DRAGON_KEYS[state.dragonSelectIndex];
+        state.battle.playerDragons[state.dragonSelectPlayer] = chosenDragon;
+
+        if (state.dragonSelectPlayer === 0 && state.activePlayerCount === 2) {
+          // Advance to player 2
+          state.dragonSelectPlayer = 1;
+          state.dragonSelectIndex = 0;
+        } else {
+          // Start the battle
+          startBattle();
+        }
+      }
+      if (keys['Escape']) {
+        keys['Escape'] = false;
+        if (state.dragonSelectPlayer === 1) {
+          // Go back to player 1 selection
+          state.dragonSelectPlayer = 0;
+          state.battle.playerDragons[0] = null;
+          state.dragonSelectIndex = 0;
+        } else {
+          // Go back to title gametype step
+          state.screen = 'title';
+          state.titleStep = 'gametype';
+          state.titleSelection = 2;
+          updateTitleTouchUI();
+        }
+      }
+
+      updateDragonSelectTouch();
+    }
+
+    function startBattle() {
+      state.screen = 'battle';
+      state.battle.wave = 0;
+      state.battle.enemies = [];
+      state.battle.shots = [];
+      state.battle.drops = [];
+      state.battle.effects = [];
+      state.battle.waveState = 'waiting';
+      state.battle.waveTimer = 0;
+      state.battle.hitStreak = [0, 0];
+      state.battle.superActive = [null, null];
+
+      for (let i = 0; i < 2; i++) {
+        state.battle.battlePlayers[i].hearts = MAX_HEARTS;
+        state.battle.battlePlayers[i].superMeter = 0;
+        state.battle.battlePlayers[i].shotTimer = 0;
+        state.battle.battlePlayers[i].respawnTimer = 0;
+        state.battle.battlePlayers[i].invTimer = 0;
+        state.battle.battlePlayers[i].shieldActive = false;
+        state.battle.battlePlayers[i].speedBoost = 0;
+        state.battle.battlePlayers[i].alive = true;
+      }
+
+      if (state.activePlayerCount === 1) {
+        state.battle.battlePlayers[0].x = CANVAS_W / 2;
+      } else {
+        state.battle.battlePlayers[0].x = CANVAS_W / 2 - 60;
+        state.battle.battlePlayers[1].x = CANVAS_W / 2 + 60;
+      }
+
+      updateDragonSelectTouch();
+      updateTitleTouchUI();
+    }
 
     // ============================================================
     // GAME LOOP
@@ -2453,6 +2765,16 @@
             ctx.fillText('Returning to title...', CANVAS_W / 2, CANVAS_H / 2 + 30);
           }
         }
+      } else if (state.screen === 'dragonSelect') {
+        updateDragonSelect();
+        drawDragonSelect();
+      } else if (state.screen === 'battle') {
+        ctx.fillStyle = '#0a0a1a';
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        ctx.fillStyle = '#fff';
+        ctx.font = '24px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Battle starting... Wave ' + state.battle.wave, CANVAS_W / 2, CANVAS_H / 2);
       }
 
       requestAnimationFrame(loop);
