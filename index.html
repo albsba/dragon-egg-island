@@ -36,6 +36,105 @@
     const COLS = 25;
     const ROWS = 18;
 
+    const TILE_COLORS = {
+      grass:      '#4a8f3f',
+      grass2:     '#3d7a34',
+      flower_r:   '#e74c3c',
+      flower_y:   '#f1c40f',
+      flower_p:   '#e84393',
+      tree_trunk: '#8B4513',
+      tree_top:   '#2d7a1e',
+      water:      '#3498db',
+      path:       '#c4a265',
+      rock:       '#888',
+      heart_tree: '#c0392b',
+      heart_leaf: '#ff69b4',
+      bush:       '#27ae60',
+      bridge:     '#a0522d',
+    };
+
+    const UI_ROWS = 2;
+    const MAP_ROWS = ROWS - UI_ROWS; // 16 playable rows
+
+    const SOLID_TILES = ['tree_trunk', 'tree_top', 'heart_tree', 'heart_leaf', 'water', 'rock'];
+
+    // ZONE_FLOWER_MEADOW: 16 rows x 25 cols
+    const ZONE_FLOWER_MEADOW = [
+      // row 0
+      ['tree_top','tree_top','grass','grass','grass','grass','flower_r','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','flower_y','grass','grass','grass','grass','tree_top','tree_top'],
+      // row 1
+      ['tree_trunk','tree_trunk','grass','grass','flower_p','grass','grass','grass','grass','grass2','grass2','grass2','grass2','grass2','grass2','grass2','grass','grass','grass','grass','flower_r','grass','grass','tree_trunk','tree_trunk'],
+      // row 2
+      ['grass','grass','grass','flower_y','grass','grass','grass','grass','grass2','grass2','grass2','grass2','grass2','grass2','grass2','grass2','grass2','grass','grass','grass','grass','grass','flower_p','grass','grass'],
+      // row 3
+      ['grass','grass','grass','grass','grass','flower_r','grass','grass','grass2','grass2','grass2','grass2','grass2','grass2','grass2','grass2','grass2','grass','grass','flower_y','grass','grass','grass','grass','grass'],
+      // row 4
+      ['grass','flower_p','grass','grass','grass','grass','grass','grass','grass2','grass2','grass2','grass2','grass2','grass2','grass2','grass2','grass2','grass','grass','grass','grass','grass','grass','flower_r','grass'],
+      // row 5
+      ['grass','grass','grass','bush','grass','grass','flower_y','grass','grass','grass2','grass2','grass2','grass2','grass2','grass2','grass2','grass','grass','grass','bush','grass','grass','grass','grass','grass'],
+      // row 6
+      ['grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass2','grass2','grass2','grass2','grass2','grass','grass','grass','grass','grass','flower_p','grass','grass','grass','grass'],
+      // row 7
+      ['grass','grass','flower_r','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass2','grass2','grass','grass','grass','grass','grass','grass','grass','grass','grass','flower_y','grass'],
+      // row 8
+      ['grass','grass','grass','grass','grass','flower_p','grass','grass','grass','rock','grass','grass','grass','grass','grass','grass','rock','grass','grass','grass','grass','flower_r','grass','grass','grass'],
+      // row 9
+      ['grass','flower_y','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','flower_p'],
+      // row 10
+      ['grass','grass','grass','grass','flower_r','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','flower_y','grass','grass','grass','grass','grass'],
+      // row 11
+      ['grass','grass','bush','grass','grass','grass','grass','flower_p','grass','grass','grass','grass','grass','grass','grass','grass','grass','flower_r','grass','grass','grass','grass','bush','grass','grass'],
+      // row 12
+      ['grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass'],
+      // row 13
+      ['grass','grass','grass','flower_y','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass'],
+      // row 14
+      ['tree_top','tree_top','grass','grass','grass','grass','grass','grass','path','path','path','path','path','path','path','path','path','grass','grass','grass','grass','grass','grass','tree_top','tree_top'],
+      // row 15
+      ['tree_trunk','tree_trunk','grass','grass','grass','grass','grass','grass','path','path','path','path','path','path','path','path','path','grass','grass','grass','grass','grass','grass','tree_trunk','tree_trunk'],
+    ];
+
+    // ZONE_HEART_FOREST: 16 rows x 25 cols
+    const ZONE_HEART_FOREST = [
+      // row 0
+      ['grass','grass','grass','grass','path','path','path','path','path','path','path','path','path','path','path','path','path','grass','grass','grass','grass','grass','grass','grass','grass'],
+      // row 1
+      ['grass','grass','grass','grass','path','path','path','path','path','path','path','path','path','path','path','path','path','grass','grass','grass','grass','grass','grass','grass','grass'],
+      // row 2
+      ['heart_leaf','heart_leaf','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','heart_leaf','heart_leaf','grass'],
+      // row 3
+      ['heart_tree','heart_tree','grass','grass','flower_p','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','flower_p','grass','grass','grass','grass','heart_tree','heart_tree','grass'],
+      // row 4
+      ['grass','grass','grass','flower_p','grass','grass','grass','grass','flower_p','grass','grass','grass','grass','grass','grass','flower_p','grass','grass','grass','grass','flower_p','grass','grass','grass','grass'],
+      // row 5
+      ['grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','flower_p','grass','flower_p','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass'],
+      // row 6
+      ['grass','heart_leaf','heart_leaf','grass','grass','grass','grass','grass','grass','grass','grass','water','water','water','water','grass','grass','grass','grass','grass','grass','heart_leaf','heart_leaf','grass','grass'],
+      // row 7
+      ['grass','heart_tree','heart_tree','grass','flower_p','grass','grass','grass','grass','grass','water','water','water','water','water','grass','grass','grass','grass','flower_p','grass','heart_tree','heart_tree','grass','grass'],
+      // row 8
+      ['grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','water','water','water','water','water','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass'],
+      // row 9
+      ['grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','water','water','water','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass'],
+      // row 10
+      ['grass','grass','flower_p','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','flower_p','grass','grass'],
+      // row 11
+      ['grass','heart_leaf','heart_leaf','grass','grass','grass','flower_p','grass','grass','grass','grass','grass','grass','grass','grass','grass','flower_p','grass','grass','grass','grass','heart_leaf','heart_leaf','grass','grass'],
+      // row 12
+      ['grass','heart_tree','heart_tree','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','heart_tree','heart_tree','grass','grass'],
+      // row 13
+      ['grass','grass','grass','grass','flower_p','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','flower_p','grass','grass','grass','grass','grass','grass'],
+      // row 14
+      ['heart_leaf','heart_leaf','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','heart_leaf','heart_leaf','grass'],
+      // row 15
+      ['heart_tree','heart_tree','grass','grass','grass','flower_p','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','flower_p','grass','grass','heart_tree','heart_tree','grass'],
+    ];
+
+    const ZONES = {
+      meadow: { map: ZONE_FLOWER_MEADOW, name: 'Flower Meadow', eggs: ['fire', 'nature'] },
+      heart:  { map: ZONE_HEART_FOREST,  name: 'Heart Forest',  eggs: ['love'] },
+    };
+
     // ============================================================
     // SPRITE DATA
     // ============================================================
@@ -148,13 +247,135 @@
     }
 
     // ============================================================
+    // RENDERING
+    // ============================================================
+    function drawTile(type, col, row) {
+      const x = col * TILE;
+      const y = (row + UI_ROWS) * TILE;
+      const color = TILE_COLORS[type];
+
+      if (type === 'flower_r' || type === 'flower_y' || type === 'flower_p') {
+        // grass background
+        ctx.fillStyle = TILE_COLORS['grass'];
+        ctx.fillRect(x, y, TILE, TILE);
+        // small colored circle
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x + TILE / 2, y + TILE / 2, TILE * 0.28, 0, Math.PI * 2);
+        ctx.fill();
+        // white center
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(x + TILE / 2, y + TILE / 2, TILE * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (type === 'bush') {
+        // grass background
+        ctx.fillStyle = TILE_COLORS['grass'];
+        ctx.fillRect(x, y, TILE, TILE);
+        // green circle
+        ctx.fillStyle = TILE_COLORS['bush'];
+        ctx.beginPath();
+        ctx.arc(x + TILE / 2, y + TILE * 0.6, TILE * 0.32, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = color || '#000';
+        ctx.fillRect(x, y, TILE, TILE);
+      }
+    }
+
+    function drawZone(zone) {
+      for (let row = 0; row < MAP_ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+          drawTile(zone.map[row][col], col, row);
+        }
+      }
+    }
+
+    function drawPlayers() {
+      for (const p of players) {
+        drawSprite(p.sprite, p.x * TILE, (p.y + UI_ROWS) * TILE, TILE);
+      }
+    }
+
+    // ============================================================
     // GAME STATE
     // ============================================================
     const state = {
-      screen: 'title',
+      screen: 'playing',
       mode: null,
       time: 0,
     };
+
+    const players = [
+      {
+        name: 'Harper',
+        x: 12, y: 7,
+        sprite: SPRITES.harper,
+        color: '#87CEEB',
+        keys: { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' },
+        moveTimer: 0,
+      },
+      {
+        name: 'Audrey',
+        x: 13, y: 7,
+        sprite: SPRITES.audrey,
+        color: '#9B59B6',
+        keys: { up: 'w', down: 's', left: 'a', right: 'd' },
+        moveTimer: 0,
+      },
+    ];
+
+    state.currentZone = 'meadow';
+    state.unlockedZones = ['meadow'];
+    state.collection = {};
+    state.dragons = [];
+    state.eggs = [];
+    state.hatching = [];
+
+    // ============================================================
+    // GAME LOGIC
+    // ============================================================
+    const MOVE_DELAY = 0.12;
+
+    function isSolid(zoneKey, col, row) {
+      const zone = ZONES[zoneKey];
+      if (col < 0 || col >= COLS || row < 0 || row >= MAP_ROWS) return true;
+      const tile = zone.map[row][col];
+      return SOLID_TILES.includes(tile);
+    }
+
+    function isOccupiedByOtherPlayer(playerIndex, col, row) {
+      for (let i = 0; i < players.length; i++) {
+        if (i !== playerIndex && players[i].x === col && players[i].y === row) return true;
+      }
+      return false;
+    }
+
+    function updatePlayers(dt) {
+      for (let i = 0; i < players.length; i++) {
+        const p = players[i];
+        p.moveTimer -= dt;
+        if (p.moveTimer > 0) continue;
+
+        const input = getPlayerInput(p.keys.up, p.keys.down, p.keys.left, p.keys.right);
+        if (input.dx === 0 && input.dy === 0) continue;
+
+        let nx = p.x + input.dx;
+        let ny = p.y + input.dy;
+
+        if (!isSolid(state.currentZone, nx, ny) && !isOccupiedByOtherPlayer(i, nx, ny)) {
+          p.x = nx;
+          p.y = ny;
+          p.moveTimer = MOVE_DELAY;
+        } else if (input.dx !== 0 && !isSolid(state.currentZone, p.x + input.dx, p.y) && !isOccupiedByOtherPlayer(i, p.x + input.dx, p.y)) {
+          p.x += input.dx;
+          p.moveTimer = MOVE_DELAY;
+        } else if (input.dy !== 0 && !isSolid(state.currentZone, p.x, p.y + input.dy) && !isOccupiedByOtherPlayer(i, p.x, p.y + input.dy)) {
+          p.y += input.dy;
+          p.moveTimer = MOVE_DELAY;
+        }
+      }
+    }
 
     // ============================================================
     // CANVAS SETUP
@@ -168,22 +389,33 @@
     let lastTime = 0;
 
     function loop(timestamp) {
-      const dt = (timestamp - lastTime) / 1000;
+      let dt = (timestamp - lastTime) / 1000;
       lastTime = timestamp;
+      if (dt > 0.1) dt = 0.1;
 
       state.time += dt;
 
+      // Update
+      if (state.screen === 'playing') {
+        updatePlayers(dt);
+      }
+
       // Clear screen
-      ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
       ctx.fillStyle = '#1a1a2e';
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-      // Placeholder title text
-      ctx.fillStyle = '#FFD700';
-      ctx.font = 'bold 48px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('Dragon Egg Island', CANVAS_W / 2, CANVAS_H / 2);
+      // Draw
+      if (state.screen === 'playing') {
+        drawZone(ZONES[state.currentZone]);
+        drawPlayers();
+      } else {
+        // Placeholder title text
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 48px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Dragon Egg Island', CANVAS_W / 2, CANVAS_H / 2);
+      }
 
       requestAnimationFrame(loop);
     }
