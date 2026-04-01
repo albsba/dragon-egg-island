@@ -1321,7 +1321,7 @@
     }
 
     // Guest input received by host
-    let remoteGuestInput = { dx: 0, dy: 0, battleX: -1, superPressed: false };
+    let remoteGuestInput = { dx: 0, dy: 0, battleX: -1, superPressed: false, swapPressed: false };
 
     function createRoom() {
       initFirebase();
@@ -1365,6 +1365,9 @@
           remoteGuestInput.battleX = (val.bx != null) ? val.bx : -1;
           if (val.sp) {
             remoteGuestInput.superPressed = true;
+          }
+          if (val.sw) {
+            remoteGuestInput.swapPressed = true;
           }
         }
       });
@@ -1627,11 +1630,14 @@
       roomRef.child('gameState').set(compressGameState());
     }
 
+    let guestSwapPressed = false;
+
     function sendGuestInput(dx, dy, battleX, superPressed) {
       if (!roomRef || !state.isGuest) return;
       const data = { dx: dx, dy: dy };
       if (battleX != null) data.bx = battleX;
       if (superPressed) data.sp = true;
+      if (guestSwapPressed) { data.sw = true; guestSwapPressed = false; }
       roomRef.child('input/guest').set(data);
     }
 
@@ -3066,6 +3072,10 @@
       if (state.battle.bonusEnemyCooldown > 0) state.battle.bonusEnemyCooldown -= dt;
 
       // Check if host should consume guest super press
+      if (state.isHost && remoteGuestInput.swapPressed) {
+        remoteGuestInput.swapPressed = false;
+        swapDragon(1);
+      }
       if (state.isHost && remoteGuestInput.superPressed) {
         remoteGuestInput.superPressed = false;
         if (state.activePlayerCount >= 2) {
@@ -5609,11 +5619,19 @@
     // Swap button touch events
     document.getElementById('swap-btn-left').addEventListener('touchstart', function(e) {
       e.preventDefault();
-      swapDragon(0);
+      if (state.isGuest) {
+        guestSwapPressed = true;
+      } else {
+        swapDragon(0);
+      }
     });
     document.getElementById('swap-btn-right').addEventListener('touchstart', function(e) {
       e.preventDefault();
-      swapDragon(1);
+      if (state.isGuest) {
+        guestSwapPressed = true;
+      } else {
+        swapDragon(1);
+      }
     });
 
     // Keyboard super: spacebar for player 0 battle slot (or solo player in 1P), 'e'/'E' for player 1 battle slot
