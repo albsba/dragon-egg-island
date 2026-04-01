@@ -2443,7 +2443,7 @@
       darkMushroom:   { name: 'Dark Mushroom',    hp: 1, speed: 45,  points: 20, color: '#8E24AA', size: 20, pattern: 'straight', splits: true },
       shadowKnight:   { name: 'Shadow Knight',    hp: 3, speed: 35,  points: 40, color: '#4A148C', size: 26, pattern: 'formation' },
       stormCloud:     { name: 'Storm Cloud',      hp: 4, speed: 25,  points: 50, color: '#311B92', size: 32, pattern: 'straight', shoots: true },
-      elderDragon:    { name: 'Elder Dragon',     hp: 10, speed: 30, points: 200, color: '#1A0033', size: 48, pattern: 'boss' },
+      elderDragon:    { name: 'Elder Dragon',     hp: 40, speed: 30, points: 200, color: '#1A0033', size: 48, pattern: 'boss' },
     };
 
     const WAVE_DEFS = [
@@ -2456,7 +2456,7 @@
       // Wave 4: first mix
       { enemies: ['shadowPuff','darkButterfly','corruptedEgg','darkButterfly','shadowPuff','corruptedEgg'], pattern: 'diagonal' },
       // Wave 5: BOSS
-      { enemies: ['elderDragon'], pattern: 'boss' },
+      { enemies: ['elderDragon', 'shadowPuff', 'shadowPuff', 'corruptedEgg', 'corruptedEgg'], pattern: 'boss' },
       // Wave 6: slimes bounce in
       { enemies: ['shadowSlime','shadowSlime','shadowSlime','shadowPuff','shadowPuff','darkButterfly','darkButterfly'], pattern: 'vshape' },
       // Wave 7: rush wave! lots of easy enemies fast
@@ -2466,7 +2466,7 @@
       // Wave 9: mushroom madness
       { enemies: ['darkMushroom','darkMushroom','darkMushroom','darkMushroom','shadowSlime','corruptedDragon'], pattern: 'circle' },
       // Wave 10: BOSS (harder)
-      { enemies: ['elderDragon'], pattern: 'boss' },
+      { enemies: ['elderDragon', 'shadowSlime', 'shadowSlime', 'darkButterfly', 'darkButterfly', 'corruptedDragon'], pattern: 'boss' },
       // Wave 11: knights appear
       { enemies: ['shadowKnight','shadowKnight','shadowSlime','shadowSlime','corruptedDragon','corruptedDragon','darkButterfly','darkButterfly'], pattern: 'vshape' },
       // Wave 12: rush wave 2
@@ -2476,7 +2476,7 @@
       // Wave 14: everything
       { enemies: ['shadowPuff','darkButterfly','shadowSlime','corruptedDragon','darkMushroom','shadowKnight','stormCloud'], pattern: 'circle' },
       // Wave 15: BOSS
-      { enemies: ['elderDragon'], pattern: 'boss' },
+      { enemies: ['elderDragon', 'shadowKnight', 'shadowKnight', 'corruptedDragon', 'corruptedDragon', 'stormCloud'], pattern: 'boss' },
     ];
 
     const BATTLE_PLAYER_SPEED = 200;
@@ -3062,12 +3062,13 @@
           b.x = Math.max(20, Math.min(CANVAS_W - 20, b.x));
         }
 
-        // Auto-shoot
+        // Auto-shoot (rate scales with wave: +2% per wave, max 2x at wave 50)
         b.shotTimer -= dt;
         const dragonKey = state.battle.playerDragons[i];
         if (dragonKey && b.shotTimer <= 0) {
           const cfg = DRAGON_CONFIGS[dragonKey];
-          b.shotTimer = 1 / cfg.shotRate;
+          const waveBonus = 1 + Math.min(state.battle.wave * 0.02, 1.0);
+          b.shotTimer = 1 / (cfg.shotRate * waveBonus);
           spawnShots(i, b.x, BATTLE_PLAYER_Y, cfg);
         }
       }
@@ -3177,8 +3178,17 @@
             startY = -typeConfig.size - Math.random() * 200;
             break;
           case 'boss':
-            startX = CANVAS_W / 2;
-            startY = -typeConfig.size;
+            if (i === 0) {
+              // Boss itself goes center
+              startX = CANVAS_W / 2;
+              startY = -typeConfig.size;
+            } else {
+              // Escort enemies spread around the boss
+              const escortCount = enemiesToSpawn.length - 1;
+              const escortIndex = i - 1;
+              startX = (CANVAS_W / (escortCount + 1)) * (escortIndex + 1);
+              startY = -typeConfig.size - 60 - (escortIndex * 20);
+            }
             break;
           default:
             startX = spacing * (i + 1);
@@ -3188,12 +3198,14 @@
         // Speed scaling: 5% per wave (up from 3%), rush waves get extra 20%
         const speedMult = (1 + (waveNum - 1) * 0.05) * (isRush ? 1.2 : 1);
 
+        const isBossEnemy = typeName === 'elderDragon';
+        const bossHp = isBossEnemy ? (40 + waveNum * 4) : typeConfig.hp;
         state.battle.enemies.push({
           type: typeName,
           x: startX,
           y: startY,
-          hp: typeConfig.hp,
-          maxHp: typeConfig.hp,
+          hp: bossHp,
+          maxHp: bossHp,
           speed: typeConfig.speed * speedMult,
           size: typeConfig.size,
           color: typeConfig.color,
@@ -3203,7 +3215,7 @@
           cureTimer: 0,
           shoots: typeConfig.shoots || false,
           splits: typeConfig.splits || false,
-          shootTimer: typeConfig.shoots ? (2 + Math.random()) : 0,
+          shootTimer: isBossEnemy ? 2.5 : (typeConfig.shoots ? (2 + Math.random()) : 0),
           spawnTime: state.time,
           frozen: 0,
           vined: 0,
@@ -3213,11 +3225,21 @@
 
     function generateWave(waveNum) {
       if (waveNum % 5 === 0) {
-        return { enemies: ['elderDragon'], pattern: 'boss' };
+        const escorts = Math.min(3 + Math.floor(waveNum / 5), 8);
+        const escortPool = waveNum < 20
+          ? ['shadowSlime', 'corruptedDragon', 'darkButterfly']
+          : ['shadowKnight', 'stormCloud', 'corruptedDragon', 'shadowSlime'];
+        const enemies = ['elderDragon'];
+        for (let i = 0; i < escorts; i++) {
+          enemies.push(escortPool[Math.floor(Math.random() * escortPool.length)]);
+        }
+        return { enemies, pattern: 'boss' };
       }
 
       const isRush = (waveNum % 3 === 1);
-      const count = isRush ? Math.min(12 + Math.floor(waveNum / 3), 18) : Math.min(7 + Math.floor(waveNum / 2), 15);
+      const count = isRush
+        ? Math.min(14 + Math.floor(waveNum / 2), 20)
+        : Math.min(8 + Math.floor(waveNum / 1.5), 16);
 
       const enemies = [];
       const pool = isRush
@@ -3332,6 +3354,30 @@
               color: '#7E57C2',
               isEnemy: true,
             });
+          }
+        }
+
+        // Elder Dragon boss shooting and enrage phase
+        if (e.type === 'elderDragon') {
+          const enraged = e.hp <= e.maxHp / 2;
+          // Apply enrage speed multiplier once
+          if (enraged && !e.enrageApplied) {
+            e.speed *= 1.5;
+            e.enrageApplied = true;
+          }
+          const shootInterval = enraged ? 1.5 : 2.5;
+          if (!e.shootTimer) e.shootTimer = shootInterval;
+          e.shootTimer -= dt;
+          if (e.shootTimer <= 0) {
+            e.shootTimer = shootInterval;
+            if (enraged) {
+              // 3-way spread
+              state.battle.shots.push({ x: e.x, y: e.y + e.size / 2, vx: -40, vy: 120, type: 'enemy', color: '#FF5252', playerId: -1, pierce: false, isEnemy: true });
+              state.battle.shots.push({ x: e.x, y: e.y + e.size / 2, vx: 0, vy: 130, type: 'enemy', color: '#FF5252', playerId: -1, pierce: false, isEnemy: true });
+              state.battle.shots.push({ x: e.x, y: e.y + e.size / 2, vx: 40, vy: 120, type: 'enemy', color: '#FF5252', playerId: -1, pierce: false, isEnemy: true });
+            } else {
+              state.battle.shots.push({ x: e.x, y: e.y + e.size / 2, vx: 0, vy: 100, type: 'enemy', color: '#7C4DFF', playerId: -1, pierce: false, isEnemy: true });
+            }
           }
         }
 
@@ -3702,26 +3748,54 @@
             break;
           }
           case 'elderDragon': {
-            // Large shadow dragon
+            const enraged = e.hp <= e.maxHp / 2;
+            // Pulsing red aura when enraged
+            if (enraged) {
+              const pulse = 0.4 + 0.3 * Math.sin(state.time * 8);
+              ctx.save();
+              ctx.globalAlpha = pulse;
+              ctx.fillStyle = '#FF1744';
+              ctx.beginPath();
+              ctx.arc(ex, ey, hsz + 10, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.globalAlpha = 1;
+              ctx.restore();
+            }
+            // Tint red/orange when enraged
+            if (enraged) {
+              ctx.save();
+              ctx.globalCompositeOperation = 'multiply';
+              ctx.fillStyle = '#FF5252';
+              ctx.beginPath();
+              ctx.arc(ex, ey, hsz, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.restore();
+            }
+            // Large shadow dragon sprite
             drawSprite(DRAGON_SPRITES.shadow, ex - hsz, ey - hsz, sz);
-            // HP bar above
-            const barW = sz * 1.2;
-            const barH = 6;
-            const barX = ex - barW / 2;
-            const barY = ey - hsz - 12;
-            const hpFrac = e.hp / e.maxHp;
-            // Background
-            ctx.fillStyle = '#333';
-            ctx.fillRect(barX, barY, barW, barH);
-            // Fill (green->yellow->red)
-            if (hpFrac > 0.5) ctx.fillStyle = '#4CAF50';
-            else if (hpFrac > 0.25) ctx.fillStyle = '#FFC107';
-            else ctx.fillStyle = '#e74c3c';
-            ctx.fillRect(barX, barY, barW * hpFrac, barH);
-            // Border
-            ctx.strokeStyle = '#888';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(barX, barY, barW, barH);
+            // Big HP bar at top of screen
+            if (!e.curing) {
+              const hpPct = e.hp / e.maxHp;
+              const bossBarW = 300;
+              const bossBarH = 14;
+              const bossBarX = (CANVAS_W - bossBarW) / 2;
+              const bossBarY = 60;
+              // Background
+              ctx.fillStyle = '#222';
+              ctx.fillRect(bossBarX - 2, bossBarY - 2, bossBarW + 4, bossBarH + 4);
+              // Fill
+              ctx.fillStyle = enraged ? '#FF5252' : (hpPct > 0.5 ? '#4CAF50' : '#FF9800');
+              ctx.fillRect(bossBarX, bossBarY, bossBarW * hpPct, bossBarH);
+              // Border
+              ctx.strokeStyle = enraged ? '#FF5252' : '#666';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(bossBarX - 2, bossBarY - 2, bossBarW + 4, bossBarH + 4);
+              // Label
+              ctx.fillStyle = '#fff';
+              ctx.font = 'bold 11px monospace';
+              ctx.textAlign = 'center';
+              ctx.fillText(enraged ? 'ELDER DRAGON - ENRAGED!' : 'ELDER DRAGON', CANVAS_W / 2, bossBarY - 6);
+            }
             break;
           }
           default: {
