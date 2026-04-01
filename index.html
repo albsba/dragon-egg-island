@@ -1292,7 +1292,7 @@
     }
 
     // Guest input received by host
-    let remoteGuestInput = { dx: 0, dy: 0 };
+    let remoteGuestInput = { dx: 0, dy: 0, battleX: -1, superPressed: false };
 
     function createRoom() {
       initFirebase();
@@ -1333,6 +1333,10 @@
         if (val) {
           remoteGuestInput.dx = val.dx || 0;
           remoteGuestInput.dy = val.dy || 0;
+          remoteGuestInput.battleX = (val.bx != null) ? val.bx : -1;
+          if (val.sp) {
+            remoteGuestInput.superPressed = true;
+          }
         }
       });
 
@@ -1383,12 +1387,17 @@
           if (!gs) return;
 
           if (gs.started && state.screen === 'title') {
-            // Game has started, switch to playing
-            state.screen = 'playing';
+            // Game has started, switch to the correct screen
             state.playerMode = '2p-online';
             state.activePlayerCount = 2;
             state.activePlayer = null;
             hideRoomOverlay();
+            // The screen will be set by applyRemoteGameState via gs.scr
+            if (gs.scr) {
+              state.screen = gs.scr;
+            } else {
+              state.screen = 'playing';
+            }
             updateTitleTouchUI();
           }
 
@@ -1402,7 +1411,7 @@
     }
 
     function compressGameState() {
-      return {
+      const syncData = {
         p: [
           { x: players[0].x, y: players[0].y },
           { x: players[1].x, y: players[1].y }
@@ -1424,6 +1433,53 @@
         t: state.time,
         started: true
       };
+
+      // Include screen so guest knows what mode we're in
+      syncData.scr = state.screen;
+
+      if (state.screen === 'battle' || state.screen === 'dragonSelect') {
+        syncData.bat = {
+          w: state.battle.wave,
+          ws: state.battle.waveState,
+          wt: state.battle.waveTimer,
+          pd: state.battle.playerDragons,
+          dsi: state.dragonSelectIndex,
+          dsp: state.dragonSelectPlayer,
+          bp: state.battle.battlePlayers.map(function(bp) {
+            return {
+              x: Math.round(bp.x), h: bp.hearts, sm: Math.round(bp.superMeter),
+              a: bp.alive, rt: bp.respawnTimer, it: bp.invTimer,
+              sh: bp.shieldActive, sb: bp.speedBoost,
+            };
+          }),
+          en: state.battle.enemies.map(function(e) {
+            return {
+              tp: e.type, x: Math.round(e.x), y: Math.round(e.y),
+              hp: e.hp, mhp: e.maxHp, c: e.curing, ct: e.cureTimer,
+            };
+          }),
+          sh: state.battle.shots.slice(0, 30).map(function(s) {
+            return {
+              x: Math.round(s.x), y: Math.round(s.y),
+              c: s.color, ie: !!s.isEnemy,
+            };
+          }),
+          dr: state.battle.drops.map(function(d) {
+            return {
+              tp: d.type, x: Math.round(d.x), y: Math.round(d.y),
+              c: d.color, sy: d.symbol,
+            };
+          }),
+          ef: state.battle.effects.slice(0, 10).map(function(e) {
+            return {
+              tp: e.type, x: Math.round(e.x), y: Math.round(e.y),
+              t: e.timer, mt: e.maxTimer,
+            };
+          }),
+        };
+      }
+
+      return syncData;
     }
 
     function applyRemoteGameState(gs) {
@@ -1466,6 +1522,75 @@
       }
       if (gs.m) state.mode = gs.m;
       if (gs.t != null) state.time = gs.t;
+
+      // Screen sync (battle / dragonSelect / playing)
+      if (gs.scr) {
+        state.screen = gs.scr;
+      }
+
+      // Battle state sync
+      if (gs.bat) {
+        const bat = gs.bat;
+        state.battle.wave = bat.w;
+        state.battle.waveState = bat.ws;
+        state.battle.waveTimer = bat.wt;
+        state.battle.playerDragons = bat.pd;
+        state.dragonSelectIndex = bat.dsi;
+        state.dragonSelectPlayer = bat.dsp;
+
+        // Update battle players
+        if (bat.bp) {
+          bat.bp.forEach(function(bp, i) {
+            const local = state.battle.battlePlayers[i];
+            if (!local) return;
+            local.x = bp.x; local.hearts = bp.h; local.superMeter = bp.sm;
+            local.alive = bp.a; local.respawnTimer = bp.rt; local.invTimer = bp.it;
+            local.shieldActive = bp.sh; local.speedBoost = bp.sb;
+          });
+        }
+
+        // Replace enemies from host
+        if (bat.en) {
+          state.battle.enemies = bat.en.map(function(e) {
+            return {
+              type: e.tp, x: e.x, y: e.y, hp: e.hp, maxHp: e.mhp,
+              curing: e.c, cureTimer: e.ct, timer: 0,
+              size: ENEMY_TYPES[e.tp] ? ENEMY_TYPES[e.tp].size : 20,
+              color: ENEMY_TYPES[e.tp] ? ENEMY_TYPES[e.tp].color : '#888',
+              pattern: ENEMY_TYPES[e.tp] ? ENEMY_TYPES[e.tp].pattern : 'straight',
+            };
+          });
+        } else {
+          state.battle.enemies = [];
+        }
+
+        // Replace shots from host
+        if (bat.sh) {
+          state.battle.shots = bat.sh.map(function(s) {
+            return { x: s.x, y: s.y, vx: 0, vy: 0, color: s.c, isEnemy: s.ie };
+          });
+        } else {
+          state.battle.shots = [];
+        }
+
+        // Replace drops from host
+        if (bat.dr) {
+          state.battle.drops = bat.dr.map(function(d) {
+            return { type: d.tp, x: d.x, y: d.y, vy: 0, color: d.c, symbol: d.sy };
+          });
+        } else {
+          state.battle.drops = [];
+        }
+
+        // Replace effects from host
+        if (bat.ef) {
+          state.battle.effects = bat.ef.map(function(e) {
+            return { type: e.tp, x: e.x, y: e.y, timer: e.t, maxTimer: e.mt };
+          });
+        } else {
+          state.battle.effects = [];
+        }
+      }
     }
 
     function syncToFirebase() {
@@ -1473,9 +1598,12 @@
       roomRef.child('gameState').set(compressGameState());
     }
 
-    function sendGuestInput(dx, dy) {
+    function sendGuestInput(dx, dy, battleX, superPressed) {
       if (!roomRef || !state.isGuest) return;
-      roomRef.child('input/guest').set({ dx: dx, dy: dy });
+      const data = { dx: dx, dy: dy };
+      if (battleX != null) data.bx = battleX;
+      if (superPressed) data.sp = true;
+      roomRef.child('input/guest').set(data);
     }
 
     function startHostSync() {
@@ -2145,6 +2273,7 @@
             state.screen = 'dragonSelect';
             state.dragonSelectPlayer = 0;
             state.dragonSelectIndex = 0;
+            if (state.isHost) { startHostSync(); syncToFirebase(); }
             updateTitleTouchUI();
           } else {
             startGame(state.titleSelection === 0 ? 'adventure' : 'freeplay');
@@ -2390,6 +2519,78 @@
       }, { passive: false });
     });
 
+    // ---- Battle touch drag controls ----
+    const touchDrag = {
+      left: { active: false, id: -1, startX: 0, currentX: 0 },
+      right: { active: false, id: -1, startX: 0, currentX: 0 },
+    };
+    let guestSuperPressed = false;
+    let battleDragHintTimer = 3;
+
+    document.addEventListener('touchstart', function(e) {
+      if (state.screen !== 'battle') return;
+
+      for (let ti = 0; ti < e.changedTouches.length; ti++) {
+        const touch = e.changedTouches[ti];
+        // Don't capture touches on super buttons
+        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (target && (target.id === 'super-btn-left' || target.id === 'super-btn-right')) continue;
+
+        const screenMid = window.innerWidth / 2;
+
+        if (state.activePlayerCount === 1) {
+          // Single player: whole screen controls their dragon
+          const side = state.activePlayer === 0 ? 'left' : 'right';
+          touchDrag[side] = { active: true, id: touch.identifier, startX: touch.clientX, currentX: touch.clientX };
+        } else {
+          // Two player (local or online guest sends separately):
+          if (touch.clientX < screenMid) {
+            touchDrag.left = { active: true, id: touch.identifier, startX: touch.clientX, currentX: touch.clientX };
+          } else {
+            touchDrag.right = { active: true, id: touch.identifier, startX: touch.clientX, currentX: touch.clientX };
+          }
+        }
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchmove', function(e) {
+      if (state.screen !== 'battle') return;
+
+      for (let ti = 0; ti < e.changedTouches.length; ti++) {
+        const touch = e.changedTouches[ti];
+        if (touchDrag.left.active && touchDrag.left.id === touch.identifier) {
+          touchDrag.left.currentX = touch.clientX;
+        }
+        if (touchDrag.right.active && touchDrag.right.id === touch.identifier) {
+          touchDrag.right.currentX = touch.clientX;
+        }
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', function(e) {
+      for (let ti = 0; ti < e.changedTouches.length; ti++) {
+        const touch = e.changedTouches[ti];
+        if (touchDrag.left.active && touchDrag.left.id === touch.identifier) {
+          touchDrag.left.active = false;
+        }
+        if (touchDrag.right.active && touchDrag.right.id === touch.identifier) {
+          touchDrag.right.active = false;
+        }
+      }
+    });
+
+    document.addEventListener('touchcancel', function(e) {
+      for (let ti = 0; ti < e.changedTouches.length; ti++) {
+        const touch = e.changedTouches[ti];
+        if (touchDrag.left.active && touchDrag.left.id === touch.identifier) {
+          touchDrag.left.active = false;
+        }
+        if (touchDrag.right.active && touchDrag.right.id === touch.identifier) {
+          touchDrag.right.active = false;
+        }
+      }
+    });
+
     // Title screen touch buttons
     const titleTouchBtns = document.getElementById('title-touch-btns');
 
@@ -2433,9 +2634,15 @@
           dpadRight.classList.remove('visible');
           return;
         }
-        // Show appropriate d-pad(s) for playing or battle screens
+        // Show appropriate d-pad(s) for playing screen (hide for battle - uses drag)
         if (!isTouchDevice) return;
-        if (state.screen !== 'playing' && state.screen !== 'battle') {
+        if (state.screen === 'battle') {
+          // Battle uses drag controls, not d-pads
+          dpadLeft.classList.remove('visible');
+          dpadRight.classList.remove('visible');
+          return;
+        }
+        if (state.screen !== 'playing') {
           dpadLeft.classList.remove('visible');
           dpadRight.classList.remove('visible');
           return;
@@ -2533,6 +2740,7 @@
       state.screen = 'dragonSelect';
       state.dragonSelectPlayer = 0;
       state.dragonSelectIndex = 0;
+      if (state.isHost) { startHostSync(); syncToFirebase(); }
       updateTitleTouchUI();
     });
 
@@ -2740,6 +2948,13 @@
 
       updateDragonSelectTouch();
       updateTitleTouchUI();
+      battleDragHintTimer = 3;
+
+      // Start online sync if host
+      if (state.isHost) {
+        startHostSync();
+        syncToFirebase();
+      }
     }
 
     // ============================================================
@@ -2748,6 +2963,15 @@
 
     function updateBattlePlayers(dt) {
       const bp = state.battle.battlePlayers;
+
+      // Check if host should consume guest super press
+      if (state.isHost && remoteGuestInput.superPressed) {
+        remoteGuestInput.superPressed = false;
+        if (state.activePlayerCount >= 2) {
+          activateSuper(1);
+        }
+      }
+
       for (let i = 0; i < state.activePlayerCount; i++) {
         const pi = state.activePlayerCount === 1 ? state.activePlayer : i;
         const b = bp[i];
@@ -2766,11 +2990,36 @@
         if (b.invTimer > 0) b.invTimer -= dt;
         if (b.speedBoost > 0) b.speedBoost -= dt;
 
-        const p = players[pi];
-        const input = getPlayerInput(p.keys.up, p.keys.down, p.keys.left, p.keys.right);
-        const speed = BATTLE_PLAYER_SPEED * (b.speedBoost > 0 ? 1.5 : 1);
-        b.x += input.dx * speed * dt;
-        b.x = Math.max(20, Math.min(CANVAS_W - 20, b.x));
+        let dx = 0;
+        const dragSide = (pi === 0) ? 'left' : 'right';
+
+        // For online mode: host uses remote input for player 1 (battle slot 1 = Audrey/guest)
+        if (state.isHost && i === 1) {
+          // Guest sent their finger X position mapped to canvas coords
+          if (remoteGuestInput.battleX >= 0) {
+            b.x = Math.max(20, Math.min(CANVAS_W - 20, remoteGuestInput.battleX));
+          } else {
+            // Fall back to d-pad dx from guest
+            dx = remoteGuestInput.dx;
+          }
+        } else if (touchDrag[dragSide].active) {
+          // Touch drag: dragon follows finger X position mapped to canvas coords
+          const canvasRect = canvas.getBoundingClientRect();
+          const canvasScale = CANVAS_W / (canvasRect.width || CANVAS_W);
+          const canvasX = (touchDrag[dragSide].currentX - canvasRect.left) * canvasScale;
+          b.x = Math.max(20, Math.min(CANVAS_W - 20, canvasX));
+        } else {
+          // Fall back to keyboard input
+          const p = players[pi];
+          const input = getPlayerInput(p.keys.up, p.keys.down, p.keys.left, p.keys.right);
+          dx = input.dx;
+        }
+
+        if (dx !== 0) {
+          const speed = BATTLE_PLAYER_SPEED * (b.speedBoost > 0 ? 1.5 : 1);
+          b.x += dx * speed * dt;
+          b.x = Math.max(20, Math.min(CANVAS_W - 20, b.x));
+        }
 
         // Auto-shoot
         b.shotTimer -= dt;
@@ -3818,17 +4067,23 @@
       const btnL = document.getElementById('super-btn-left');
       const btnR = document.getElementById('super-btn-right');
       if (state.screen === 'battle' && isTouchDevice) {
-        if (state.activePlayerCount >= 1) {
+        // For online mode: host sees left button only, guest sees right button only
+        const showLeft = state.isGuest ? false : (state.activePlayerCount >= 1);
+        const showRight = state.isHost ? false : (state.activePlayerCount >= 2 || state.isGuest);
+
+        if (showLeft) {
           btnL.style.display = 'block';
           if (state.battle.battlePlayers[0].superMeter >= SUPER_METER_MAX && state.battle.battlePlayers[0].alive) {
             btnL.classList.add('ready');
           } else {
             btnL.classList.remove('ready');
           }
+        } else {
+          btnL.style.display = 'none';
         }
-        if (state.activePlayerCount >= 2) {
+        if (showRight) {
           btnR.style.display = 'block';
-          if (state.battle.battlePlayers[1].superMeter >= SUPER_METER_MAX && state.battle.battlePlayers[1].alive) {
+          if (state.battle.battlePlayers[1] && state.battle.battlePlayers[1].superMeter >= SUPER_METER_MAX && state.battle.battlePlayers[1].alive) {
             btnR.classList.add('ready');
           } else {
             btnR.classList.remove('ready');
@@ -3845,11 +4100,19 @@
     // Super button touch events
     document.getElementById('super-btn-left').addEventListener('touchstart', function(e) {
       e.preventDefault();
-      activateSuper(0);
+      if (state.isGuest) {
+        guestSuperPressed = true;
+      } else {
+        activateSuper(0);
+      }
     });
     document.getElementById('super-btn-right').addEventListener('touchstart', function(e) {
       e.preventDefault();
-      activateSuper(1);
+      if (state.isGuest) {
+        guestSuperPressed = true;
+      } else {
+        activateSuper(1);
+      }
     });
 
     // Keyboard super: spacebar for player 0 battle slot (or solo player in 1P), 'e'/'E' for player 1 battle slot
@@ -3944,10 +4207,34 @@
           }
         }
       } else if (state.screen === 'dragonSelect') {
-        updateDragonSelect();
+        if (!state.isGuest) {
+          updateDragonSelect();
+        }
         drawDragonSelect();
       } else if (state.screen === 'battle') {
-        if (!state.isGuest) {
+        if (state.isGuest) {
+          // Guest: send touch/keyboard input to host
+          let battleX = -1;
+          let dx = 0;
+          const guestDragSide = 'right'; // guest is always player 1 (right side)
+          if (touchDrag[guestDragSide].active || touchDrag['left'].active) {
+            const activeSide = touchDrag[guestDragSide].active ? guestDragSide : 'left';
+            const canvasRect = canvas.getBoundingClientRect();
+            const canvasScale = CANVAS_W / (canvasRect.width || CANVAS_W);
+            battleX = Math.round((touchDrag[activeSide].currentX - canvasRect.left) * canvasScale);
+            battleX = Math.max(20, Math.min(CANVAS_W - 20, battleX));
+          } else {
+            // Keyboard fallback
+            const guestInput = getPlayerInput(
+              players[1].keys.up, players[1].keys.down,
+              players[1].keys.left, players[1].keys.right
+            );
+            const altInput = getPlayerInput('ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight');
+            dx = guestInput.dx || altInput.dx;
+          }
+          sendGuestInput(dx, 0, battleX, guestSuperPressed);
+          guestSuperPressed = false;
+        } else {
           updateBattlePlayers(dt);
           updateShots(dt);
           updateEnemies(dt);
@@ -3966,6 +4253,16 @@
         drawDrops();
         drawBattleEffects();
         drawBattleHUD();
+
+        // Show drag hint on first wave
+        if (isTouchDevice && state.battle.wave <= 1 && battleDragHintTimer > 0) {
+          battleDragHintTimer -= dt;
+          const alpha = Math.min(1, battleDragHintTimer / 0.5);
+          ctx.fillStyle = 'rgba(255, 215, 0, ' + alpha + ')';
+          ctx.font = 'bold 20px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('Drag to move!', CANVAS_W / 2, CANVAS_H - 30);
+        }
       }
 
       requestAnimationFrame(loop);
