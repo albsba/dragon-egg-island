@@ -3129,6 +3129,7 @@
       state.battle.waveState = 'active';
       state.battle.waveTimer = 0;
       state.battle.hitStreak = [0, 0];
+      state.battle.combo = { count: 0, timer: 0, displayTimer: 0 };
 
       const waveNum = state.battle.wave;
       let waveDef;
