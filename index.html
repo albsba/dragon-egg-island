@@ -319,6 +319,108 @@
       }
     }
 
+    function drawDragons() {
+      for (let i = 0; i < state.dragons.length; i++) {
+        const d = state.dragons[i];
+        const bounce = Math.sin(state.time * 4 + i * 0.8) * 2;
+        drawSprite(
+          DRAGON_SPRITES[d.type],
+          d.x * TILE + 6,
+          (d.y + UI_ROWS) * TILE + bounce + 4,
+          TILE * 0.6
+        );
+      }
+    }
+
+    function drawUI() {
+      // Background bar
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, CANVAS_W, UI_ROWS * TILE);
+
+      // Zone name
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(ZONES[state.currentZone].name, 10, 20);
+
+      // Dragon collection icons
+      const allTypes = ['fire', 'nature', 'love'];
+      const startX = 10;
+      const y = 34;
+
+      for (let i = 0; i < allTypes.length; i++) {
+        const type = allTypes[i];
+        const count = state.collection[type] || 0;
+        const x = startX + i * 80;
+
+        if (count > 0) {
+          drawSprite(DRAGON_SPRITES[type], x, y - 6, 20);
+          ctx.fillStyle = '#fff';
+          ctx.font = '12px monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText('x' + count, x + 24, y + 8);
+        } else {
+          ctx.fillStyle = '#444';
+          ctx.fillRect(x, y - 4, 16, 16);
+          ctx.fillStyle = '#555';
+          ctx.font = '12px monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText('?', x + 4, y + 8);
+        }
+      }
+
+      // Player labels
+      ctx.textAlign = 'right';
+      ctx.font = '11px monospace';
+      ctx.fillStyle = players[0].color;
+      ctx.fillText(players[0].name + ': Arrows', CANVAS_W - 10, 18);
+      ctx.fillStyle = players[1].color;
+      ctx.fillText(players[1].name + ': WASD', CANVAS_W - 10, 34);
+
+      // Adventure mode unlock progress
+      if (state.mode === 'adventure') {
+        const totalCollected = Object.values(state.collection).reduce((a, b) => a + b, 0);
+        const needed = 5;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#aaa';
+        ctx.font = '11px monospace';
+        if (!state.unlockedZones.includes('heart')) {
+          ctx.fillText('Collect ' + totalCollected + '/' + needed + ' eggs to unlock Heart Forest', CANVAS_W / 2, CANVAS_H - 8);
+        } else {
+          ctx.fillText('Heart Forest unlocked! Walk to the path at the bottom.', CANVAS_W / 2, CANVAS_H - 8);
+        }
+      }
+
+      // Divider line
+      ctx.strokeStyle = '#444';
+      ctx.beginPath();
+      ctx.moveTo(0, UI_ROWS * TILE);
+      ctx.lineTo(CANVAS_W, UI_ROWS * TILE);
+      ctx.stroke();
+    }
+
+    function drawUnlockEffect() {
+      if (!state.unlockEffect) return;
+      const t = state.unlockEffect.timer;
+      const alpha = Math.max(0, 1 - t / 2);
+
+      for (let i = 0; i < 15; i++) {
+        const x = (8 + i) * TILE + Math.sin(t * 5 + i) * 5;
+        const y = (MAP_ROWS - 1 + UI_ROWS) * TILE + Math.cos(t * 4 + i * 0.5) * 10;
+        ctx.fillStyle = `rgba(255, 255, 100, ${alpha * (0.5 + Math.sin(t * 8 + i) * 0.5)})`;
+        ctx.fillRect(x - 2, y - 2, 4, 4);
+      }
+
+      if (t < 1.5) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.font = 'bold 18px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Heart Forest unlocked!', CANVAS_W / 2, CANVAS_H / 2 - 20);
+        ctx.font = '13px monospace';
+        ctx.fillText('Walk to the path at the bottom!', CANVAS_W / 2, CANVAS_H / 2 + 5);
+      }
+    }
+
     // ============================================================
     // GAME STATE
     // ============================================================
@@ -348,11 +450,13 @@
     ];
 
     state.currentZone = 'meadow';
-    state.unlockedZones = ['meadow', 'heart'];
+    state.unlockedZones = ['meadow'];
     state.collection = {};
     state.dragons = [];
     state.eggs = [];
     state.hatching = [];
+    state.unlockEffect = null;
+    state.mode = 'adventure';
 
     // ============================================================
     // GAME LOGIC
@@ -444,6 +548,43 @@
       }
     }
 
+    function updateDragons(dt) {
+      for (let i = 0; i < state.dragons.length; i++) {
+        const d = state.dragons[i];
+        const leader = i === 0
+          ? players[d.followPlayer]
+          : (state.dragons[i - 1].followPlayer === d.followPlayer ? state.dragons[i - 1] : players[d.followPlayer]);
+
+        const dx = leader.x - d.x;
+        const dy = leader.y - d.y;
+        const dist = Math.abs(dx) + Math.abs(dy);
+
+        if (dist > 1.5) {
+          d.x += Math.sign(dx) * dt * 5;
+          d.y += Math.sign(dy) * dt * 5;
+        }
+      }
+    }
+
+    function checkUnlocks() {
+      if (state.mode !== 'adventure') return;
+
+      const totalCollected = Object.values(state.collection).reduce((a, b) => a + b, 0);
+
+      if (totalCollected >= 5 && !state.unlockedZones.includes('heart')) {
+        state.unlockedZones.push('heart');
+        state.unlockEffect = { timer: 0, zone: 'heart' };
+      }
+    }
+
+    function updateUnlockEffect(dt) {
+      if (!state.unlockEffect) return;
+      state.unlockEffect.timer += dt;
+      if (state.unlockEffect.timer > 2) {
+        state.unlockEffect = null;
+      }
+    }
+
     function updateHatching(dt) {
       for (let i = state.hatching.length - 1; i >= 0; i--) {
         const h = state.hatching[i];
@@ -465,6 +606,8 @@
             x: players[followPlayer].x,
             y: players[followPlayer].y,
           });
+
+          checkUnlocks();
 
           state.hatching.splice(i, 1);
 
@@ -574,6 +717,8 @@
         checkZoneTransition();
         checkEggCollection();
         updateHatching(dt);
+        updateDragons(dt);
+        updateUnlockEffect(dt);
       }
 
       // Clear screen
@@ -583,9 +728,12 @@
       // Draw
       if (state.screen === 'playing') {
         drawZone(ZONES[state.currentZone]);
+        drawDragons();
         drawPlayers();
         drawEggs();
         drawHatching();
+        drawUI();
+        drawUnlockEffect();
       } else {
         // Placeholder title text
         ctx.fillStyle = '#FFD700';
