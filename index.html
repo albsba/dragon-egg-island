@@ -2698,6 +2698,642 @@
     }
 
     // ============================================================
+    // BATTLE LOGIC
+    // ============================================================
+
+    function updateBattlePlayers(dt) {
+      const bp = state.battle.battlePlayers;
+      for (let i = 0; i < state.activePlayerCount; i++) {
+        const pi = state.activePlayerCount === 1 ? state.activePlayer : i;
+        const b = bp[i];
+
+        if (!b.alive) {
+          b.respawnTimer -= dt;
+          if (b.respawnTimer <= 0) {
+            b.alive = true;
+            b.hearts = MAX_HEARTS;
+            b.invTimer = INVINCIBLE_TIME;
+            b.x = CANVAS_W / 2 + (i === 0 ? -60 : 60);
+          }
+          continue;
+        }
+
+        if (b.invTimer > 0) b.invTimer -= dt;
+        if (b.speedBoost > 0) b.speedBoost -= dt;
+
+        const p = players[pi];
+        const input = getPlayerInput(p.keys.up, p.keys.down, p.keys.left, p.keys.right);
+        const speed = BATTLE_PLAYER_SPEED * (b.speedBoost > 0 ? 1.5 : 1);
+        b.x += input.dx * speed * dt;
+        b.x = Math.max(20, Math.min(CANVAS_W - 20, b.x));
+
+        // Auto-shoot
+        b.shotTimer -= dt;
+        const dragonKey = state.battle.playerDragons[i];
+        if (dragonKey && b.shotTimer <= 0) {
+          const cfg = DRAGON_CONFIGS[dragonKey];
+          b.shotTimer = 1 / cfg.shotRate;
+          spawnShots(i, b.x, BATTLE_PLAYER_Y, cfg);
+        }
+      }
+    }
+
+    function spawnShots(playerId, x, y, config) {
+      const shots = state.battle.shots;
+      const spd = config.shotSpeed;
+      const col = config.color;
+
+      switch (config.shotType) {
+        case 'single':
+          shots.push({ x: x, y: y, vx: 0, vy: -spd, color: col, owner: playerId });
+          break;
+        case 'spread':
+          shots.push({ x: x, y: y, vx: -spd * 0.25, vy: -spd, color: col, owner: playerId });
+          shots.push({ x: x, y: y, vx: 0, vy: -spd, color: col, owner: playerId });
+          shots.push({ x: x, y: y, vx: spd * 0.25, vy: -spd, color: col, owner: playerId });
+          break;
+        case 'pierce':
+          shots.push({ x: x, y: y, vx: 0, vy: -spd, color: col, owner: playerId, pierce: true });
+          break;
+        case 'wide':
+          shots.push({ x: x, y: y, vx: 0, vy: -spd, color: col, owner: playerId, wide: true });
+          break;
+        case 'bounce':
+          shots.push({ x: x, y: y, vx: spd * 0.15, vy: -spd, color: col, owner: playerId, bounces: 2 });
+          break;
+        case 'beam':
+          shots.push({ x: x, y: y, vx: 0, vy: -spd, color: col, owner: playerId, pierce: true, beam: true });
+          break;
+      }
+    }
+
+    function updateShots(dt) {
+      const shots = state.battle.shots;
+      for (let i = shots.length - 1; i >= 0; i--) {
+        const s = shots[i];
+        s.x += s.vx * dt;
+        s.y += s.vy * dt;
+
+        // Bounce shots bounce off left/right edges
+        if (s.bounces !== undefined && s.bounces > 0) {
+          if (s.x < 4 || s.x > CANVAS_W - 4) {
+            s.vx = -s.vx;
+            s.bounces--;
+          }
+        }
+
+        // Remove if off-screen
+        if (s.y < -20 || s.y > CANVAS_H + 20 || s.x < -20 || s.x > CANVAS_W + 20) {
+          shots.splice(i, 1);
+        }
+      }
+    }
+
+    function startNextWave() {
+      state.battle.wave++;
+      state.battle.waveState = 'active';
+      const wave = state.battle.wave;
+      let enemyList;
+
+      if (wave <= WAVE_DEFS.length) {
+        enemyList = WAVE_DEFS[wave - 1].enemies;
+      } else {
+        enemyList = generateWave(wave);
+      }
+
+      const speedMult = Math.pow(1.03, wave - 1);
+      const spacing = CANVAS_W / (enemyList.length + 1);
+
+      for (let i = 0; i < enemyList.length; i++) {
+        const typeName = enemyList[i];
+        const et = ENEMY_TYPES[typeName];
+        state.battle.enemies.push({
+          type: typeName,
+          x: spacing * (i + 1),
+          y: -et.size - (i * 30),
+          hp: et.hp,
+          maxHp: et.hp,
+          speed: et.speed * speedMult,
+          size: et.size,
+          pattern: et.pattern,
+          color: et.color,
+          shoots: et.shoots || false,
+          splits: et.splits || false,
+          shootTimer: 3,
+          spawnTime: state.time,
+          curing: false,
+          cureTimer: 0,
+          frozen: 0,
+          vined: 0,
+        });
+      }
+    }
+
+    function generateWave(waveNum) {
+      const isBoss = waveNum % 5 === 0;
+      if (isBoss) return ['elderDragon'];
+
+      const hardTypes = ['shadowSlime', 'corruptedDragon', 'shadowKnight', 'stormCloud'];
+      const medTypes = ['darkButterfly', 'darkMushroom', 'corruptedEgg'];
+      const count = Math.min(12, 4 + Math.floor(waveNum / 3));
+      const list = [];
+      for (let i = 0; i < count; i++) {
+        if (Math.random() < 0.4) {
+          list.push(hardTypes[Math.floor(Math.random() * hardTypes.length)]);
+        } else {
+          list.push(medTypes[Math.floor(Math.random() * medTypes.length)]);
+        }
+      }
+      return list;
+    }
+
+    function updateEnemies(dt) {
+      const enemies = state.battle.enemies;
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+
+        // Curing animation
+        if (e.curing) {
+          e.cureTimer += dt;
+          if (e.cureTimer >= 1) {
+            // Spawn drop
+            const roll = Math.random();
+            let cumulative = 0;
+            for (const dKey of Object.keys(DROP_TYPES)) {
+              cumulative += DROP_TYPES[dKey].chance;
+              if (roll < cumulative) {
+                state.battle.drops.push({ x: e.x, y: e.y, type: dKey, timer: 5 });
+                break;
+              }
+            }
+            // Add cure effect
+            state.battle.effects.push({ x: e.x, y: e.y, type: 'cure', timer: 0.6 });
+            // Add super meter to all players
+            const meterGain = 5;
+            for (let p = 0; p < state.activePlayerCount; p++) {
+              state.battle.battlePlayers[p].superMeter = Math.min(SUPER_METER_MAX, state.battle.battlePlayers[p].superMeter + meterGain);
+            }
+            enemies.splice(i, 1);
+          }
+          continue;
+        }
+
+        // Skip movement if frozen/vined
+        if (e.frozen > 0) { e.frozen -= dt; continue; }
+        if (e.vined > 0) { e.vined -= dt; continue; }
+
+        const age = state.time - e.spawnTime;
+
+        // Movement patterns
+        switch (e.pattern) {
+          case 'straight':
+            e.y += e.speed * dt;
+            break;
+          case 'wobble':
+            e.y += e.speed * dt;
+            e.x += Math.sin(age * 3) * 30 * dt;
+            break;
+          case 'zigzag':
+            e.y += e.speed * dt;
+            e.x += Math.sin(age * 2) * 80 * dt;
+            break;
+          case 'bounce':
+            e.y += e.speed * dt;
+            e.x += Math.cos(age * 2.5) * 50 * dt;
+            e.x = Math.max(e.size, Math.min(CANVAS_W - e.size, e.x));
+            break;
+          case 'swoop':
+            e.y += e.speed * dt * Math.max(0.3, 1 - age * 0.1);
+            e.x += Math.sin(age * 1.5) * 60 * dt;
+            break;
+          case 'formation':
+            e.y += e.speed * dt;
+            e.x += Math.sin(age * 2 + i * 0.5) * 40 * dt;
+            break;
+          case 'boss':
+            if (e.y < 80) {
+              e.y += e.speed * dt;
+            } else {
+              e.y = 80;
+              e.x += Math.sin(age * 0.8) * 100 * dt;
+              e.x = Math.max(e.size, Math.min(CANVAS_W - e.size, e.x));
+            }
+            break;
+        }
+
+        // Storm clouds shoot
+        if (e.shoots) {
+          e.shootTimer -= dt;
+          if (e.shootTimer <= 0) {
+            e.shootTimer = 3;
+            state.battle.shots.push({
+              x: e.x, y: e.y + e.size / 2,
+              vx: 0, vy: 120,
+              color: '#7E57C2',
+              isEnemy: true,
+            });
+          }
+        }
+
+        // Remove if off bottom
+        if (e.y > CANVAS_H + e.size) {
+          enemies.splice(i, 1);
+        }
+      }
+    }
+
+    function checkBattleCollisions() {
+      const enemies = state.battle.enemies;
+      const shots = state.battle.shots;
+      const bp = state.battle.battlePlayers;
+
+      // 1. Player shots vs enemies
+      for (let si = shots.length - 1; si >= 0; si--) {
+        const s = shots[si];
+        if (s.isEnemy) continue;
+        const sw = s.wide ? 16 : 6;
+
+        for (let ei = enemies.length - 1; ei >= 0; ei--) {
+          const e = enemies[ei];
+          if (e.curing) continue;
+          const es = e.size / 2;
+
+          // Rectangle overlap
+          if (s.x - sw / 2 < e.x + es && s.x + sw / 2 > e.x - es &&
+              s.y - 4 < e.y + es && s.y + 4 > e.y - es) {
+            e.hp--;
+            state.battle.effects.push({ x: s.x, y: s.y, type: 'hit', timer: 0.3 });
+
+            if (e.hp <= 0) {
+              e.curing = true;
+              e.cureTimer = 0;
+
+              // Splits
+              if (e.splits) {
+                for (let sp = 0; sp < 2; sp++) {
+                  state.battle.enemies.push({
+                    type: e.type,
+                    x: e.x + (sp === 0 ? -20 : 20),
+                    y: e.y,
+                    hp: 1,
+                    maxHp: 1,
+                    speed: e.speed * 1.2,
+                    size: e.size * 0.7,
+                    pattern: 'wobble',
+                    color: e.color,
+                    shoots: false,
+                    splits: false,
+                    shootTimer: 99,
+                    spawnTime: state.time,
+                    curing: false,
+                    cureTimer: 0,
+                    frozen: 0,
+                    vined: 0,
+                  });
+                }
+              }
+            }
+
+            if (!s.pierce) {
+              shots.splice(si, 1);
+              break;
+            }
+          }
+        }
+      }
+
+      // 2. Enemies + enemy shots vs players
+      for (let pi = 0; pi < state.activePlayerCount; pi++) {
+        const b = bp[pi];
+        if (!b.alive || b.invTimer > 0) continue;
+
+        const px = b.x;
+        const py = BATTLE_PLAYER_Y;
+        const pr = 14; // player radius
+
+        // Check enemies
+        for (const e of enemies) {
+          if (e.curing) continue;
+          const es = e.size / 2;
+          if (px - pr < e.x + es && px + pr > e.x - es &&
+              py - pr < e.y + es && py + pr > e.y - es) {
+            hitBattlePlayer(pi);
+            break;
+          }
+        }
+
+        // Check enemy shots
+        if (!b.alive || b.invTimer > 0) continue;
+        for (let si = shots.length - 1; si >= 0; si--) {
+          const s = shots[si];
+          if (!s.isEnemy) continue;
+          if (Math.abs(s.x - px) < pr + 4 && Math.abs(s.y - py) < pr + 4) {
+            hitBattlePlayer(pi);
+            shots.splice(si, 1);
+            break;
+          }
+        }
+      }
+    }
+
+    function hitBattlePlayer(playerIdx) {
+      const b = state.battle.battlePlayers[playerIdx];
+      if (b.shieldActive) {
+        b.shieldActive = false;
+        b.invTimer = 0.5;
+        state.battle.effects.push({ x: b.x, y: BATTLE_PLAYER_Y, type: 'shieldBreak', timer: 0.5 });
+        return;
+      }
+      b.hearts--;
+      b.invTimer = 1;
+      state.battle.hitStreak[playerIdx]++;
+      if (b.hearts <= 0) {
+        b.alive = false;
+        b.respawnTimer = RESPAWN_TIME;
+      }
+    }
+
+    function updateBattleWaves(dt) {
+      const b = state.battle;
+
+      if (b.waveState === 'waiting') {
+        b.waveTimer += dt;
+        if (b.waveTimer >= 2) {
+          b.waveTimer = 0;
+          startNextWave();
+        }
+      } else if (b.waveState === 'active') {
+        if (b.enemies.length === 0) {
+          b.waveState = 'clearing';
+          b.waveTimer = 0;
+        }
+      } else if (b.waveState === 'clearing') {
+        b.waveTimer += dt;
+        if (b.waveTimer >= 2) {
+          b.waveState = 'waiting';
+          b.waveTimer = 0;
+        }
+      }
+    }
+
+    // ============================================================
+    // BATTLE RENDERING
+    // ============================================================
+
+    const battleStars = [];
+    for (let i = 0; i < 60; i++) {
+      battleStars.push({
+        x: Math.random() * CANVAS_W,
+        y: Math.random() * CANVAS_H,
+        size: Math.random() * 2 + 0.5,
+        speed: Math.random() * 20 + 10,
+      });
+    }
+
+    function drawBattleBackground() {
+      ctx.fillStyle = '#0a0a1a';
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+      for (const star of battleStars) {
+        const sy = (star.y + state.time * star.speed) % CANVAS_H;
+        const twinkle = Math.sin(state.time * 3 + star.x * 0.1) * 0.3 + 0.7;
+        ctx.fillStyle = 'rgba(255, 255, 255, ' + twinkle * 0.6 + ')';
+        ctx.fillRect(star.x, sy, star.size, star.size);
+      }
+    }
+
+    function drawBattlePlayers() {
+      for (let i = 0; i < state.activePlayerCount; i++) {
+        const pi = state.activePlayerCount === 1 ? state.activePlayer : i;
+        const b = state.battle.battlePlayers[i];
+        const dragonKey = state.battle.playerDragons[i];
+        if (!dragonKey) continue;
+
+        if (!b.alive) {
+          // Dizzy stars animation
+          const cx = b.x;
+          const cy = BATTLE_PLAYER_Y;
+          for (let s = 0; s < 3; s++) {
+            const angle = state.time * 4 + s * (Math.PI * 2 / 3);
+            const sx = cx + Math.cos(angle) * 14;
+            const sy = cy - 20 + Math.sin(angle) * 6;
+            ctx.fillStyle = '#FFD700';
+            ctx.font = '10px serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('\u2605', sx, sy);
+          }
+          continue;
+        }
+
+        // Flash when invincible
+        if (b.invTimer > 0 && Math.floor(state.time * 10) % 2 === 0) continue;
+
+        // Shield bubble
+        if (b.shieldActive) {
+          ctx.strokeStyle = 'rgba(105, 240, 174, 0.6)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(b.x, BATTLE_PLAYER_Y, 22, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Dragon sprite
+        drawSprite(DRAGON_SPRITES[dragonKey], b.x - 18, BATTLE_PLAYER_Y - 18, 36);
+      }
+    }
+
+    function drawBattleShots() {
+      for (const s of state.battle.shots) {
+        if (s.isEnemy) {
+          // Enemy projectile: purple circle
+          ctx.fillStyle = s.color;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+          continue;
+        }
+
+        if (s.beam) {
+          ctx.fillStyle = s.color;
+          ctx.fillRect(s.x - 2, s.y - 8, 4, 16);
+        } else if (s.wide) {
+          ctx.fillStyle = s.color;
+          ctx.font = '14px serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('\u2665', s.x, s.y + 4);
+        } else {
+          // Trail
+          ctx.fillStyle = s.color + '44';
+          ctx.beginPath();
+          ctx.arc(s.x, s.y + 6, 3, 0, Math.PI * 2);
+          ctx.fill();
+          // Main dot
+          ctx.fillStyle = s.color;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function drawBattleEnemies() {
+      for (const e of state.battle.enemies) {
+        const ex = e.x;
+        const ey = e.y;
+        const sz = e.size;
+        const hsz = sz / 2;
+
+        // Curing animation
+        if (e.curing) {
+          const t = e.cureTimer;
+          const hue = (t * 360) % 360;
+          const alpha = Math.max(0, 1 - t);
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = 'hsl(' + hue + ', 80%, 70%)';
+          ctx.beginPath();
+          ctx.arc(ex, ey - t * 20, hsz, 0, Math.PI * 2);
+          ctx.fill();
+          // Happy face
+          ctx.fillStyle = '#fff';
+          ctx.font = (sz * 0.5) + 'px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(':)', ex, ey - t * 20 + sz * 0.15);
+          ctx.globalAlpha = 1;
+          continue;
+        }
+
+        // Damage flash
+        const damaged = e.hp < e.maxHp;
+        if (damaged && Math.floor(state.time * 15) % 3 === 0) {
+          ctx.fillStyle = '#fff';
+        } else {
+          ctx.fillStyle = e.color;
+        }
+
+        switch (e.type) {
+          case 'shadowPuff': {
+            // Cloud shape: 3 circles
+            const c = e.color;
+            if (damaged && Math.floor(state.time * 15) % 3 === 0) ctx.fillStyle = '#fff';
+            else ctx.fillStyle = c;
+            ctx.beginPath();
+            ctx.arc(ex - hsz * 0.4, ey, hsz * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(ex + hsz * 0.4, ey, hsz * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(ex, ey - hsz * 0.3, hsz * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+          }
+          case 'corruptedEgg':
+            drawSprite(EGG_SPRITES.shadow, ex - hsz, ey - hsz, sz);
+            break;
+          case 'darkButterfly': {
+            // Body
+            ctx.fillRect(ex - 2, ey - hsz * 0.6, 4, hsz * 1.2);
+            // Wings (flapping)
+            const flap = Math.sin(state.time * 8) * 0.3 + 0.7;
+            ctx.beginPath();
+            ctx.ellipse(ex - hsz * 0.5, ey, hsz * 0.6, hsz * 0.4 * flap, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(ex + hsz * 0.5, ey, hsz * 0.6, hsz * 0.4 * flap, 0, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+          }
+          case 'shadowSlime': {
+            // Squishing ellipse
+            const squish = Math.sin(state.time * 4) * 0.15 + 1;
+            ctx.beginPath();
+            ctx.ellipse(ex, ey, hsz * squish, hsz / squish, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(ex - 4, ey - 3, 3, 3);
+            ctx.fillRect(ex + 2, ey - 3, 3, 3);
+            break;
+          }
+          case 'corruptedDragon':
+            drawSprite(DRAGON_SPRITES.shadow, ex - hsz, ey - hsz, sz);
+            break;
+          case 'darkMushroom': {
+            // Brown stem
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(ex - 3, ey, 6, hsz * 0.7);
+            // Purple cap
+            if (damaged && Math.floor(state.time * 15) % 3 === 0) ctx.fillStyle = '#fff';
+            else ctx.fillStyle = e.color;
+            ctx.beginPath();
+            ctx.arc(ex, ey, hsz * 0.7, Math.PI, 0);
+            ctx.fill();
+            break;
+          }
+          case 'shadowKnight': {
+            // Filled rectangle body
+            ctx.fillRect(ex - hsz * 0.5, ey - hsz * 0.7, sz * 0.5, sz * 0.7);
+            // Visor
+            ctx.fillStyle = '#B39DDB';
+            ctx.fillRect(ex - hsz * 0.4, ey - hsz * 0.3, sz * 0.4, 3);
+            break;
+          }
+          case 'stormCloud': {
+            // Large cloud (3 overlapping circles)
+            const c2 = e.color;
+            if (damaged && Math.floor(state.time * 15) % 3 === 0) ctx.fillStyle = '#fff';
+            else ctx.fillStyle = c2;
+            ctx.beginPath();
+            ctx.arc(ex - hsz * 0.4, ey, hsz * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(ex + hsz * 0.4, ey, hsz * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(ex, ey - hsz * 0.25, hsz * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+            // Lightning bolt hint
+            ctx.fillStyle = '#FFD700';
+            ctx.font = '10px serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('\u26A1', ex, ey + hsz + 8);
+            break;
+          }
+          case 'elderDragon': {
+            // Large shadow dragon
+            drawSprite(DRAGON_SPRITES.shadow, ex - hsz, ey - hsz, sz);
+            // HP bar above
+            const barW = sz * 1.2;
+            const barH = 6;
+            const barX = ex - barW / 2;
+            const barY = ey - hsz - 12;
+            const hpFrac = e.hp / e.maxHp;
+            // Background
+            ctx.fillStyle = '#333';
+            ctx.fillRect(barX, barY, barW, barH);
+            // Fill (green->yellow->red)
+            if (hpFrac > 0.5) ctx.fillStyle = '#4CAF50';
+            else if (hpFrac > 0.25) ctx.fillStyle = '#FFC107';
+            else ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(barX, barY, barW * hpFrac, barH);
+            // Border
+            ctx.strokeStyle = '#888';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(barX, barY, barW, barH);
+            break;
+          }
+          default: {
+            // Fallback: simple circle
+            ctx.beginPath();
+            ctx.arc(ex, ey, hsz, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+          }
+        }
+      }
+    }
+
+    // ============================================================
     // GAME LOOP
     // ============================================================
     let lastTime = 0;
@@ -2769,12 +3405,18 @@
         updateDragonSelect();
         drawDragonSelect();
       } else if (state.screen === 'battle') {
-        ctx.fillStyle = '#0a0a1a';
-        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-        ctx.fillStyle = '#fff';
-        ctx.font = '24px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('Battle starting... Wave ' + state.battle.wave, CANVAS_W / 2, CANVAS_H / 2);
+        if (!state.isGuest) {
+          updateBattlePlayers(dt);
+          updateShots(dt);
+          updateEnemies(dt);
+          checkBattleCollisions();
+          updateBattleWaves(dt);
+        }
+
+        drawBattleBackground();
+        drawBattleEnemies();
+        drawBattleShots();
+        drawBattlePlayers();
       }
 
       requestAnimationFrame(loop);
