@@ -2427,14 +2427,19 @@
         });
       } else {
         titleTouchBtns.classList.remove('visible');
-        // Hide d-pads on dragon select and battle screens (they use their own controls)
-        if (state.screen === 'dragonSelect' || state.screen === 'battle') {
+        // Hide d-pads on dragon select screen (uses its own controls)
+        if (state.screen === 'dragonSelect') {
           dpadLeft.classList.remove('visible');
           dpadRight.classList.remove('visible');
           return;
         }
-        // Show appropriate d-pad(s)
+        // Show appropriate d-pad(s) for playing or battle screens
         if (!isTouchDevice) return;
+        if (state.screen !== 'playing' && state.screen !== 'battle') {
+          dpadLeft.classList.remove('visible');
+          dpadRight.classList.remove('visible');
+          return;
+        }
         if (state.playerMode === '2p-online') {
           // Online: host gets left d-pad (Harper), guest gets right d-pad (Audrey)
           if (state.isHost) {
@@ -3847,16 +3852,26 @@
       activateSuper(1);
     });
 
-    // Keyboard super: spacebar for player 0 (or activePlayer in 1P), 'e'/'E' for player 1
+    // Keyboard super: spacebar for player 0 battle slot (or solo player in 1P), 'e'/'E' for player 1 battle slot
     document.addEventListener('keydown', function(e) {
       if (state.screen !== 'battle') return;
       if (e.key === ' ' || e.key === 'Spacebar') {
         e.preventDefault();
+        // In 1P mode, activateSuper for the active player (battle slot 0)
         activateSuper(0);
       } else if (e.key === 'e' || e.key === 'E') {
         if (state.activePlayerCount >= 2) {
           activateSuper(1);
         }
+      } else if (e.key === 'Escape') {
+        // Return to title from battle
+        const btnL = document.getElementById('super-btn-left');
+        const btnR = document.getElementById('super-btn-right');
+        btnL.style.display = 'none';
+        btnR.style.display = 'none';
+        document.getElementById('dragon-select-touch').style.display = 'none';
+        returnToTitle();
+        updateTitleTouchUI();
       }
     });
 
