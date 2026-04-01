@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Dragon Egg Island</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
   <style>
     * {
       box-sizing: border-box;
@@ -151,6 +153,128 @@
     .title-touch-btn:active {
       background: rgba(255, 215, 0, 0.25);
     }
+
+    /* Online room UI */
+    #room-code-overlay {
+      position: fixed;
+      display: none;
+      top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+      background: rgba(26, 26, 46, 0.95);
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    #room-code-overlay.visible {
+      display: flex;
+    }
+
+    #room-code-overlay .room-label {
+      color: #FFD700;
+      font-family: monospace;
+      font-size: 22px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    #room-code-overlay .room-sublabel {
+      color: #aaa;
+      font-family: monospace;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    #room-code-input {
+      width: 200px;
+      padding: 16px;
+      font-size: 36px;
+      font-family: monospace;
+      font-weight: bold;
+      text-align: center;
+      background: #2a2a4e;
+      color: #FFD700;
+      border: 3px solid #FFD700;
+      border-radius: 12px;
+      outline: none;
+      letter-spacing: 12px;
+      -webkit-appearance: none;
+    }
+
+    #room-code-input::placeholder {
+      color: #555;
+      letter-spacing: 4px;
+      font-size: 20px;
+    }
+
+    .room-btn {
+      padding: 14px 40px;
+      font-size: 18px;
+      font-family: monospace;
+      font-weight: bold;
+      border: 2px solid #FFD700;
+      border-radius: 10px;
+      background: rgba(26, 26, 46, 0.85);
+      color: #FFD700;
+      cursor: pointer;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      min-width: 200px;
+      text-align: center;
+    }
+
+    .room-btn:active {
+      background: rgba(255, 215, 0, 0.25);
+    }
+
+    .room-btn.back-btn {
+      border-color: #888;
+      color: #888;
+      font-size: 14px;
+      min-width: 120px;
+      padding: 10px 24px;
+      margin-top: 10px;
+    }
+
+    .room-status {
+      color: #4CAF50;
+      font-family: monospace;
+      font-size: 16px;
+      text-align: center;
+    }
+
+    .room-status.waiting {
+      color: #aaa;
+    }
+
+    .room-status.error {
+      color: #e74c3c;
+    }
+
+    .room-code-display {
+      color: #FFD700;
+      font-family: monospace;
+      font-size: 64px;
+      font-weight: bold;
+      letter-spacing: 16px;
+      text-align: center;
+    }
+
+    .connection-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .connection-dot.green { background: #4CAF50; }
+    .connection-dot.yellow { background: #FFC107; }
+    .connection-dot.red { background: #e74c3c; }
   </style>
 </head>
 <body>
@@ -181,13 +305,21 @@
     <!-- Step: mode -->
     <button class="title-touch-btn" id="btn-1p">1 Player</button>
     <button class="title-touch-btn" id="btn-2p-local">2 Players - Same iPad</button>
-    <button class="title-touch-btn" id="btn-2p-online" style="opacity:0.4;pointer-events:none;">2 Players - 2 iPads (Soon)</button>
+    <button class="title-touch-btn" id="btn-2p-online">2 Players - 2 iPads</button>
     <!-- Step: character -->
     <button class="title-touch-btn" id="btn-harper" style="display:none;">Harper</button>
     <button class="title-touch-btn" id="btn-audrey" style="display:none;">Audrey</button>
     <!-- Step: gametype -->
     <button class="title-touch-btn" id="btn-adventure" style="display:none;">Adventure</button>
     <button class="title-touch-btn" id="btn-freeplay" style="display:none;">Free Play</button>
+    <!-- Step: online -->
+    <button class="title-touch-btn" id="btn-create-room" style="display:none;">Create Room</button>
+    <button class="title-touch-btn" id="btn-join-room" style="display:none;">Join Room</button>
+  </div>
+
+  <!-- Room code overlay (for hosting/joining) -->
+  <div id="room-code-overlay">
+    <!-- Content is set dynamically by JS -->
   </div>
 
   <script>
@@ -885,7 +1017,14 @@
       // Player labels
       ctx.textAlign = 'right';
       ctx.font = '11px monospace';
-      if (state.activePlayerCount === 1) {
+      if (state.playerMode === '2p-online') {
+        ctx.fillStyle = players[0].color;
+        const p1Label = state.isHost ? 'You' : 'Online';
+        ctx.fillText(players[0].name + ' (' + p1Label + ')', CANVAS_W - 10, 18);
+        ctx.fillStyle = players[1].color;
+        const p2Label = state.isGuest ? 'You' : 'Online';
+        ctx.fillText(players[1].name + ' (' + p2Label + ')', CANVAS_W - 10, 34);
+      } else if (state.activePlayerCount === 1) {
         const ap = players[state.activePlayer];
         const ctrlHint = state.activePlayer === 0 ? 'Arrows' : 'WASD';
         ctx.fillStyle = ap.color;
@@ -998,6 +1137,375 @@
     state.hatching = [];
     state.unlockEffect = null;
     state.particles = [];
+
+    // Online multiplayer state
+    state.isHost = false;
+    state.isGuest = false;
+    state.roomCode = null;
+    state.onlineStatus = null;       // 'creating', 'waiting', 'joining', 'connected', 'disconnected'
+    state.guestConnected = false;
+    state.hostConnected = false;
+
+    // ============================================================
+    // FIREBASE NETWORKING
+    // ============================================================
+    const FIREBASE_CONFIG = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    let firebaseApp = null;
+    let firebaseDb = null;
+    let roomRef = null;
+    let syncInterval = null;
+    let guestInputListener = null;
+    let gameStateListener = null;
+    let hostConnectionListener = null;
+    let guestConnectionListener = null;
+
+    function initFirebase() {
+      if (firebaseApp) return;
+      firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+      firebaseDb = firebase.database();
+    }
+
+    function generateRoomCode() {
+      return Math.floor(1000 + Math.random() * 9000).toString();
+    }
+
+    function cleanupFirebase() {
+      if (syncInterval) {
+        clearInterval(syncInterval);
+        syncInterval = null;
+      }
+      if (guestInputListener && roomRef) {
+        roomRef.child('input/guest').off('value', guestInputListener);
+        guestInputListener = null;
+      }
+      if (gameStateListener && roomRef) {
+        roomRef.child('gameState').off('value', gameStateListener);
+        gameStateListener = null;
+      }
+      if (hostConnectionListener && roomRef) {
+        roomRef.child('host/connected').off('value', hostConnectionListener);
+        hostConnectionListener = null;
+      }
+      if (guestConnectionListener && roomRef) {
+        roomRef.child('guest/connected').off('value', guestConnectionListener);
+        guestConnectionListener = null;
+      }
+      if (roomRef && state.isHost) {
+        roomRef.remove();
+      } else if (roomRef && state.isGuest) {
+        roomRef.child('guest').remove();
+      }
+      roomRef = null;
+      state.isHost = false;
+      state.isGuest = false;
+      state.roomCode = null;
+      state.onlineStatus = null;
+      state.guestConnected = false;
+      state.hostConnected = false;
+    }
+
+    // Guest input received by host
+    let remoteGuestInput = { dx: 0, dy: 0 };
+
+    function createRoom() {
+      initFirebase();
+      state.roomCode = generateRoomCode();
+      state.isHost = true;
+      state.onlineStatus = 'waiting';
+
+      roomRef = firebaseDb.ref('rooms/' + state.roomCode);
+
+      // Write host entry
+      roomRef.child('host').set({ connected: true });
+      roomRef.child('host').onDisconnect().remove();
+      roomRef.child('input/guest').set({ dx: 0, dy: 0 });
+
+      // Listen for guest connection
+      guestConnectionListener = roomRef.child('guest/connected').on('value', function(snap) {
+        if (snap.val() === true) {
+          state.guestConnected = true;
+          if (state.onlineStatus === 'waiting') {
+            state.onlineStatus = 'connected';
+            // Move to gametype selection
+            hideRoomOverlay();
+            state.titleStep = 'gametype';
+            state.titleSelection = 0;
+            updateTitleTouchUI();
+          }
+        } else {
+          if (state.guestConnected && state.screen === 'playing') {
+            state.guestConnected = false;
+            state.onlineStatus = 'disconnected';
+          }
+        }
+      });
+
+      // Listen for guest input
+      guestInputListener = roomRef.child('input/guest').on('value', function(snap) {
+        const val = snap.val();
+        if (val) {
+          remoteGuestInput.dx = val.dx || 0;
+          remoteGuestInput.dy = val.dy || 0;
+        }
+      });
+
+      showRoomOverlayHost();
+    }
+
+    function joinRoom(code) {
+      initFirebase();
+      state.roomCode = code;
+      state.isGuest = true;
+      state.onlineStatus = 'joining';
+
+      roomRef = firebaseDb.ref('rooms/' + code);
+
+      // Check if room exists
+      roomRef.child('host/connected').once('value', function(snap) {
+        if (!snap.val()) {
+          state.onlineStatus = null;
+          state.isGuest = false;
+          roomRef = null;
+          showRoomOverlayJoinError('Room not found');
+          return;
+        }
+
+        // Write guest entry
+        roomRef.child('guest').set({ connected: true });
+        roomRef.child('guest').onDisconnect().remove();
+
+        state.onlineStatus = 'connected';
+        state.hostConnected = true;
+
+        // Listen for host disconnect
+        hostConnectionListener = roomRef.child('host/connected').on('value', function(hSnap) {
+          if (hSnap.val() !== true && state.hostConnected) {
+            state.hostConnected = false;
+            state.onlineStatus = 'disconnected';
+            // Return to title if host left
+            if (state.screen === 'playing') {
+              cleanupFirebase();
+              returnToTitle();
+            }
+          }
+        });
+
+        // Listen for game state (this is the main sync channel)
+        gameStateListener = roomRef.child('gameState').on('value', function(gsSnap) {
+          const gs = gsSnap.val();
+          if (!gs) return;
+
+          if (gs.started && state.screen === 'title') {
+            // Game has started, switch to playing
+            state.screen = 'playing';
+            state.playerMode = '2p-online';
+            state.activePlayerCount = 2;
+            state.activePlayer = null;
+            hideRoomOverlay();
+            updateTitleTouchUI();
+          }
+
+          if (gs.started) {
+            applyRemoteGameState(gs);
+          }
+        });
+
+        showRoomOverlayGuestConnected();
+      });
+    }
+
+    function compressGameState() {
+      return {
+        p: [
+          { x: players[0].x, y: players[0].y },
+          { x: players[1].x, y: players[1].y }
+        ],
+        z: state.currentZone,
+        e: state.eggs.map(function(egg) {
+          return { t: egg.type, x: egg.x, y: egg.y, b: egg.bobOffset };
+        }),
+        d: state.dragons.map(function(d) {
+          return { t: d.type, fp: d.followPlayer, x: d.x, y: d.y };
+        }),
+        h: state.hatching.map(function(h) {
+          return { t: h.type, x: h.x, y: h.y, tm: h.timer, ph: h.phase };
+        }),
+        c: state.collection,
+        ul: state.unlockedZones,
+        ue: state.unlockEffect ? { tm: state.unlockEffect.timer, zone: state.unlockEffect.zone } : null,
+        m: state.mode,
+        t: state.time,
+        started: true
+      };
+    }
+
+    function applyRemoteGameState(gs) {
+      if (gs.p && gs.p[0]) {
+        players[0].x = gs.p[0].x;
+        players[0].y = gs.p[0].y;
+      }
+      if (gs.p && gs.p[1]) {
+        players[1].x = gs.p[1].x;
+        players[1].y = gs.p[1].y;
+      }
+      if (gs.z) state.currentZone = gs.z;
+      if (gs.e) {
+        state.eggs = gs.e.map(function(e) {
+          return { type: e.t, x: e.x, y: e.y, bobOffset: e.b };
+        });
+      } else {
+        state.eggs = [];
+      }
+      if (gs.d) {
+        state.dragons = gs.d.map(function(d) {
+          return { type: d.t, followPlayer: d.fp, x: d.x, y: d.y };
+        });
+      } else {
+        state.dragons = [];
+      }
+      if (gs.h) {
+        state.hatching = gs.h.map(function(h) {
+          return { type: h.t, x: h.x, y: h.y, timer: h.tm, phase: h.ph };
+        });
+      } else {
+        state.hatching = [];
+      }
+      if (gs.c) state.collection = gs.c;
+      if (gs.ul) state.unlockedZones = gs.ul;
+      if (gs.ue) {
+        state.unlockEffect = { timer: gs.ue.tm, zone: gs.ue.zone };
+      } else {
+        state.unlockEffect = null;
+      }
+      if (gs.m) state.mode = gs.m;
+      if (gs.t != null) state.time = gs.t;
+    }
+
+    function syncToFirebase() {
+      if (!roomRef || !state.isHost) return;
+      roomRef.child('gameState').set(compressGameState());
+    }
+
+    function sendGuestInput(dx, dy) {
+      if (!roomRef || !state.isGuest) return;
+      roomRef.child('input/guest').set({ dx: dx, dy: dy });
+    }
+
+    function startHostSync() {
+      if (syncInterval) clearInterval(syncInterval);
+      syncInterval = setInterval(syncToFirebase, 66); // ~15 fps
+    }
+
+    // ---- Room overlay UI helpers ----
+
+    function showRoomOverlayHost() {
+      const overlay = document.getElementById('room-code-overlay');
+      overlay.innerHTML =
+        '<div class="room-label">Your Room Code</div>' +
+        '<div class="room-code-display">' + state.roomCode + '</div>' +
+        '<div class="room-status waiting"><span class="connection-dot yellow"></span>Waiting for friend...</div>' +
+        '<button class="room-btn back-btn" id="btn-room-back">Back</button>';
+      overlay.classList.add('visible');
+      document.getElementById('btn-room-back').addEventListener('click', function() {
+        cleanupFirebase();
+        hideRoomOverlay();
+        state.titleStep = 'online';
+        state.titleSelection = 0;
+        updateTitleTouchUI();
+      });
+      // Hide title touch btns while overlay is showing
+      titleTouchBtns.classList.remove('visible');
+    }
+
+    function showRoomOverlayJoin() {
+      const overlay = document.getElementById('room-code-overlay');
+      overlay.innerHTML =
+        '<div class="room-label">Enter Room Code</div>' +
+        '<input type="number" id="room-code-input" maxlength="4" placeholder="0000" inputmode="numeric" pattern="[0-9]*">' +
+        '<button class="room-btn" id="btn-room-connect">Join</button>' +
+        '<div class="room-status" id="room-join-status"></div>' +
+        '<button class="room-btn back-btn" id="btn-room-back">Back</button>';
+      overlay.classList.add('visible');
+      titleTouchBtns.classList.remove('visible');
+
+      var input = document.getElementById('room-code-input');
+      input.focus();
+
+      document.getElementById('btn-room-connect').addEventListener('click', function() {
+        var code = input.value.trim();
+        if (code.length === 4 && /^\d{4}$/.test(code)) {
+          document.getElementById('room-join-status').textContent = 'Connecting...';
+          document.getElementById('room-join-status').className = 'room-status waiting';
+          joinRoom(code);
+        } else {
+          document.getElementById('room-join-status').textContent = 'Enter a 4-digit code';
+          document.getElementById('room-join-status').className = 'room-status error';
+        }
+      });
+
+      // Also allow Enter key to join
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          document.getElementById('btn-room-connect').click();
+        }
+      });
+
+      document.getElementById('btn-room-back').addEventListener('click', function() {
+        cleanupFirebase();
+        hideRoomOverlay();
+        state.titleStep = 'online';
+        state.titleSelection = 0;
+        updateTitleTouchUI();
+      });
+    }
+
+    function showRoomOverlayJoinError(msg) {
+      var statusEl = document.getElementById('room-join-status');
+      if (statusEl) {
+        statusEl.textContent = msg;
+        statusEl.className = 'room-status error';
+      }
+    }
+
+    function showRoomOverlayGuestConnected() {
+      const overlay = document.getElementById('room-code-overlay');
+      overlay.innerHTML =
+        '<div class="room-label">Connected!</div>' +
+        '<div class="room-status"><span class="connection-dot green"></span>Waiting for host to start the game...</div>';
+      overlay.classList.add('visible');
+      titleTouchBtns.classList.remove('visible');
+    }
+
+    function hideRoomOverlay() {
+      const overlay = document.getElementById('room-code-overlay');
+      overlay.classList.remove('visible');
+      overlay.innerHTML = '';
+    }
+
+    function returnToTitle() {
+      state.screen = 'title';
+      state.titleStep = 'mode';
+      state.titleSelection = 0;
+      state.isHost = false;
+      state.isGuest = false;
+      state.playerMode = null;
+      hideRoomOverlay();
+      updateTitleTouchUI();
+    }
+
+    // Cleanup on page close
+    window.addEventListener('beforeunload', function() {
+      cleanupFirebase();
+    });
 
     // ============================================================
     // GAME LOGIC
@@ -1239,7 +1747,14 @@
         p.moveTimer -= dt;
         if (p.moveTimer > 0) continue;
 
-        const input = getPlayerInput(p.keys.up, p.keys.down, p.keys.left, p.keys.right);
+        // For online mode: host uses local input for player 0, remote input for player 1
+        let input;
+        if (state.isHost && pi === 1) {
+          // Use guest's remote input
+          input = { dx: remoteGuestInput.dx, dy: remoteGuestInput.dy };
+        } else {
+          input = getPlayerInput(p.keys.up, p.keys.down, p.keys.left, p.keys.right);
+        }
         if (input.dx === 0 && input.dy === 0) continue;
 
         let nx = p.x + input.dx;
@@ -1300,6 +1815,7 @@
 
         const onePlayerSel = state.titleSelection === 0;
         const twoLocalSel  = state.titleSelection === 1;
+        const twoOnlineSel = state.titleSelection === 2;
 
         ctx.fillStyle = onePlayerSel ? '#FFD700' : '#888';
         ctx.font = (onePlayerSel ? 'bold ' : '') + '22px monospace';
@@ -1309,9 +1825,9 @@
         ctx.font = (twoLocalSel ? 'bold ' : '') + '22px monospace';
         ctx.fillText(twoLocalSel ? '> 2 Players - Same iPad <' : '2 Players - Same iPad', CANVAS_W / 2, 345);
 
-        ctx.fillStyle = '#444';
-        ctx.font = '20px monospace';
-        ctx.fillText('2 Players - 2 iPads (Coming Soon)', CANVAS_W / 2, 400);
+        ctx.fillStyle = twoOnlineSel ? '#FFD700' : '#888';
+        ctx.font = (twoOnlineSel ? 'bold ' : '') + '22px monospace';
+        ctx.fillText(twoOnlineSel ? '> 2 Players - 2 iPads <' : '2 Players - 2 iPads', CANVAS_W / 2, 400);
 
         ctx.fillStyle = '#555';
         ctx.font = '11px monospace';
@@ -1398,6 +1914,34 @@
         ctx.fillStyle = '#555';
         ctx.font = '11px monospace';
         ctx.fillText('Use Arrows/WASD to select  |  Enter to confirm  |  Left/Esc to go back', CANVAS_W / 2, 490);
+
+      } else if (state.titleStep === 'online') {
+        // --- Step: Online room setup ---
+        ctx.fillStyle = '#aaa';
+        ctx.font = '15px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('2 Players - 2 iPads', CANVAS_W / 2, 235);
+
+        const createSel = state.titleSelection === 0;
+        const joinSel   = state.titleSelection === 1;
+
+        ctx.fillStyle = createSel ? '#FFD700' : '#888';
+        ctx.font = (createSel ? 'bold ' : '') + '22px monospace';
+        ctx.fillText(createSel ? '> Create Room <' : 'Create Room', CANVAS_W / 2, 310);
+        ctx.font = '11px monospace';
+        ctx.fillStyle = createSel ? '#ccc' : '#555';
+        ctx.fillText('Start a room and share the code', CANVAS_W / 2, 332);
+
+        ctx.fillStyle = joinSel ? '#FFD700' : '#888';
+        ctx.font = (joinSel ? 'bold ' : '') + '22px monospace';
+        ctx.fillText(joinSel ? '> Join Room <' : 'Join Room', CANVAS_W / 2, 390);
+        ctx.font = '11px monospace';
+        ctx.fillStyle = joinSel ? '#ccc' : '#555';
+        ctx.fillText('Enter a friend\'s room code', CANVAS_W / 2, 412);
+
+        ctx.fillStyle = '#555';
+        ctx.font = '11px monospace';
+        ctx.fillText('Use Arrows/WASD to select  |  Enter to confirm  |  Esc to go back', CANVAS_W / 2, 490);
       }
 
       // Decorative eggs
@@ -1412,11 +1956,11 @@
     function updateTitleScreen() {
       if (state.titleStep === 'mode') {
         if (keys['ArrowUp'] || keys['w']) {
-          state.titleSelection = 0;
+          state.titleSelection = Math.max(0, state.titleSelection - 1);
           keys['ArrowUp'] = false; keys['w'] = false;
         }
         if (keys['ArrowDown'] || keys['s']) {
-          state.titleSelection = 1;
+          state.titleSelection = Math.min(2, state.titleSelection + 1);
           keys['ArrowDown'] = false; keys['s'] = false;
         }
         if (keys['Enter'] || keys[' '] || keys['ArrowRight']) {
@@ -1429,8 +1973,36 @@
             state.playerMode = '2p-local';
             state.titleStep = 'gametype';
             state.titleSelection = 0;
+          } else if (state.titleSelection === 2) {
+            state.playerMode = '2p-online';
+            state.titleStep = 'online';
+            state.titleSelection = 0;
           }
           updateTitleTouchUI();
+        }
+
+      } else if (state.titleStep === 'online') {
+        if (keys['ArrowUp'] || keys['w']) {
+          state.titleSelection = 0;
+          keys['ArrowUp'] = false; keys['w'] = false;
+        }
+        if (keys['ArrowDown'] || keys['s']) {
+          state.titleSelection = 1;
+          keys['ArrowDown'] = false; keys['s'] = false;
+        }
+        if (keys['Escape'] || keys['ArrowLeft']) {
+          state.titleStep = 'mode';
+          state.titleSelection = 2;
+          keys['Escape'] = false; keys['ArrowLeft'] = false;
+          updateTitleTouchUI();
+        }
+        if (keys['Enter'] || keys[' ']) {
+          keys['Enter'] = false; keys[' '] = false;
+          if (state.titleSelection === 0) {
+            createRoom();
+          } else {
+            showRoomOverlayJoin();
+          }
         }
 
       } else if (state.titleStep === 'character') {
@@ -1468,6 +2040,11 @@
         if (keys['Escape'] || keys['ArrowLeft']) {
           if (state.playerMode === '1p') {
             state.titleStep = 'character';
+          } else if (state.playerMode === '2p-online') {
+            // Don't go back from gametype if online and connected
+            // (host picks mode after guest joins)
+            state.titleStep = 'mode';
+            cleanupFirebase();
           } else {
             state.titleStep = 'mode';
           }
@@ -1521,6 +2098,13 @@
       }
 
       spawnEggsForZone('meadow');
+
+      // Start online sync if host
+      if (state.isHost) {
+        startHostSync();
+        // Send initial state so guest can start
+        syncToFirebase();
+      }
     }
 
     // ============================================================
@@ -1668,6 +2252,7 @@
       mode:      ['btn-1p', 'btn-2p-local', 'btn-2p-online'],
       character: ['btn-harper', 'btn-audrey'],
       gametype:  ['btn-adventure', 'btn-freeplay'],
+      online:    ['btn-create-room', 'btn-join-room'],
     };
 
     function updateTitleTouchUI() {
@@ -1698,7 +2283,16 @@
         titleTouchBtns.classList.remove('visible');
         // Show appropriate d-pad(s)
         if (!isTouchDevice) return;
-        if (state.activePlayerCount === 1) {
+        if (state.playerMode === '2p-online') {
+          // Online: host gets left d-pad (Harper), guest gets right d-pad (Audrey)
+          if (state.isHost) {
+            dpadLeft.classList.add('visible');
+            dpadRight.classList.remove('visible');
+          } else if (state.isGuest) {
+            dpadLeft.classList.remove('visible');
+            dpadRight.classList.add('visible');
+          }
+        } else if (state.activePlayerCount === 1) {
           if (state.activePlayer === 0) {
             dpadLeft.classList.add('visible');
             dpadRight.classList.remove('visible');
@@ -1753,6 +2347,21 @@
       updateTitleTouchUI();
     });
 
+    titleTouchBtn('btn-2p-online', function() {
+      state.playerMode = '2p-online';
+      state.titleStep = 'online';
+      state.titleSelection = 0;
+      updateTitleTouchUI();
+    });
+
+    titleTouchBtn('btn-create-room', function() {
+      createRoom();
+    });
+
+    titleTouchBtn('btn-join-room', function() {
+      showRoomOverlayJoin();
+    });
+
     titleTouchBtn('btn-adventure', function() {
       startGame('adventure');
       updateTitleTouchUI();
@@ -1780,16 +2389,33 @@
         updateTitleScreen();
         drawTitleScreen();
       } else if (state.screen === 'playing') {
-        // Update
-        updatePlayers(dt);
-        checkZoneTransition();
-        checkEggCollection();
-        updateHatching(dt);
-        updateDragons(dt);
-        updateUnlockEffect(dt);
-        updateParticles(dt);
+        // Guest: send input to Firebase, skip game logic
+        if (state.isGuest) {
+          // Send guest d-pad input
+          const guestInput = getPlayerInput(
+            players[1].keys.up, players[1].keys.down,
+            players[1].keys.left, players[1].keys.right
+          );
+          // Also check left d-pad (arrows) for convenience on guest
+          const altInput = getPlayerInput('ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight');
+          const dx = guestInput.dx || altInput.dx;
+          const dy = guestInput.dy || altInput.dy;
+          sendGuestInput(dx, dy);
 
-        // Draw
+          // Guest only updates particles locally for visual effect
+          updateParticles(dt);
+        } else {
+          // Host or local: run all game logic
+          updatePlayers(dt);
+          checkZoneTransition();
+          checkEggCollection();
+          updateHatching(dt);
+          updateDragons(dt);
+          updateUnlockEffect(dt);
+          updateParticles(dt);
+        }
+
+        // Draw (both host and guest)
         ctx.fillStyle = '#1a1a2e';
         ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
         drawZone(ZONES[state.currentZone]);
@@ -1800,6 +2426,23 @@
         drawHatching();
         drawUI();
         drawUnlockEffect();
+
+        // Online connection status overlay
+        if (state.playerMode === '2p-online' && state.onlineStatus === 'disconnected') {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+          ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+          ctx.fillStyle = '#FFC107';
+          ctx.font = 'bold 20px monospace';
+          ctx.textAlign = 'center';
+          if (state.isHost) {
+            ctx.fillText('Waiting for friend to reconnect...', CANVAS_W / 2, CANVAS_H / 2);
+          } else {
+            ctx.fillText('Host disconnected', CANVAS_W / 2, CANVAS_H / 2);
+            ctx.font = '14px monospace';
+            ctx.fillStyle = '#aaa';
+            ctx.fillText('Returning to title...', CANVAS_W / 2, CANVAS_H / 2 + 30);
+          }
+        }
       }
 
       requestAnimationFrame(loop);
