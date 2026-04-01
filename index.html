@@ -315,6 +315,28 @@
       50%  { transform: scale(1.1); box-shadow: 0 0 25px rgba(255, 215, 0, 0.6); }
       100% { transform: scale(1);   box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
     }
+
+    .swap-btn {
+      position: fixed;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: 2px solid #4DD0E1;
+      background: rgba(77, 208, 225, 0.15);
+      color: #4DD0E1;
+      font-family: monospace;
+      font-size: 11px;
+      font-weight: bold;
+      z-index: 20;
+      touch-action: manipulation;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      display: none;
+    }
+    #swap-btn-left  { bottom: 290px; left: 40px; }
+    #swap-btn-right { bottom: 290px; right: 40px; }
   </style>
 </head>
 <body>
@@ -366,6 +388,10 @@
   <!-- Super buttons -->
   <button id="super-btn-left" class="super-btn" style="display:none;">SUPER!</button>
   <button id="super-btn-right" class="super-btn" style="display:none;">SUPER!</button>
+
+  <!-- Swap buttons -->
+  <button id="swap-btn-left" class="swap-btn">SWAP</button>
+  <button id="swap-btn-right" class="swap-btn">SWAP</button>
 
   <!-- Dragon select touch controls -->
   <div id="dragon-select-touch" style="display:none; position: fixed; bottom: 30px; left: 0; right: 0; z-index: 20; text-align: center;">
@@ -1215,8 +1241,8 @@
       waveTimer: 0,
       playerDragons: [null, null],
       battlePlayers: [
-        { x: CANVAS_W / 2 - 40, hearts: 5, superMeter: 0, shotTimer: 0, respawnTimer: 0, invTimer: 0, shieldActive: false, speedBoost: 0, alive: true, tripleShot: 0, giantShot: 0, rapidFire: 0, magnet: 0, timeSlow: 0, starShield: 0, giantDragon: 0, clone: 0, rainbowTrail: 0, trailPoints: [] },
-        { x: CANVAS_W / 2 + 40, hearts: 5, superMeter: 0, shotTimer: 0, respawnTimer: 0, invTimer: 0, shieldActive: false, speedBoost: 0, alive: true, tripleShot: 0, giantShot: 0, rapidFire: 0, magnet: 0, timeSlow: 0, starShield: 0, giantDragon: 0, clone: 0, rainbowTrail: 0, trailPoints: [] },
+        { x: CANVAS_W / 2 - 40, hearts: 5, superMeter: 0, shotTimer: 0, respawnTimer: 0, invTimer: 0, shieldActive: false, speedBoost: 0, alive: true, tripleShot: 0, giantShot: 0, rapidFire: 0, magnet: 0, timeSlow: 0, starShield: 0, giantDragon: 0, clone: 0, rainbowTrail: 0, trailPoints: [], respawnSelecting: false, respawnInputCooldown: 0 },
+        { x: CANVAS_W / 2 + 40, hearts: 5, superMeter: 0, shotTimer: 0, respawnTimer: 0, invTimer: 0, shieldActive: false, speedBoost: 0, alive: true, tripleShot: 0, giantShot: 0, rapidFire: 0, magnet: 0, timeSlow: 0, starShield: 0, giantDragon: 0, clone: 0, rainbowTrail: 0, trailPoints: [], respawnSelecting: false, respawnInputCooldown: 0 },
       ],
       hitStreak: [0, 0],
       superActive: [null, null],
@@ -2506,6 +2532,7 @@
       clone:        { color: '#CE93D8', chance: 0.03, symbol: '\u229E' },
       rainbowTrail: { color: '#FF6B6B', chance: 0.04, symbol: '~' },
       friendBeam:   { color: '#F48FB1', chance: 0.03, symbol: '\u221E' },
+      dragonEgg:    { color: '#FFD700', chance: 0.02, symbol: '\u2B50' },
     };
 
     // ============================================================
@@ -2585,9 +2612,10 @@
 
       for (let ti = 0; ti < e.changedTouches.length; ti++) {
         const touch = e.changedTouches[ti];
-        // Don't capture touches on super buttons
+        // Don't capture touches on super/swap buttons
         const target = document.elementFromPoint(touch.clientX, touch.clientY);
-        if (target && (target.id === 'super-btn-left' || target.id === 'super-btn-right')) continue;
+        if (target && (target.id === 'super-btn-left' || target.id === 'super-btn-right' ||
+            target.id === 'swap-btn-left' || target.id === 'swap-btn-right')) continue;
 
         e.preventDefault(); // Stop iOS magnifier/text selection
 
@@ -3005,6 +3033,8 @@
         state.battle.battlePlayers[i].clone = 0;
         state.battle.battlePlayers[i].rainbowTrail = 0;
         state.battle.battlePlayers[i].trailPoints = [];
+        state.battle.battlePlayers[i].respawnSelecting = false;
+        state.battle.battlePlayers[i].respawnInputCooldown = 0;
       }
 
       if (state.activePlayerCount === 1) {
@@ -3049,10 +3079,25 @@
 
         if (!b.alive) {
           b.respawnTimer -= dt;
+
+          // Allow dragon selection during respawn timer
+          b.respawnSelecting = true;
+          const p = players[pi];
+          const respawnInput = getPlayerInput(p.keys.up, p.keys.down, p.keys.left, p.keys.right);
+          if (respawnInput.dx !== 0 && !b.respawnInputCooldown) {
+            const dragonKeys = Object.keys(DRAGON_CONFIGS);
+            const currentIdx = dragonKeys.indexOf(state.battle.playerDragons[i]);
+            const newIdx = ((currentIdx >= 0 ? currentIdx : 0) + respawnInput.dx + dragonKeys.length) % dragonKeys.length;
+            state.battle.playerDragons[i] = dragonKeys[newIdx];
+            b.respawnInputCooldown = 0.15;
+          }
+          if (b.respawnInputCooldown > 0) b.respawnInputCooldown -= dt;
+
           if (b.respawnTimer <= 0) {
             b.alive = true;
             b.hearts = MAX_HEARTS;
             b.invTimer = INVINCIBLE_TIME;
+            b.respawnSelecting = false;
             b.x = CANVAS_W / 2 + (i === 0 ? -60 : 60);
           }
           continue;
@@ -3901,6 +3946,29 @@
             ctx.textAlign = 'center';
             ctx.fillText('\u2605', sx, sy);
           }
+
+          // Dragon selection UI during respawn
+          if (b.respawnSelecting && state.battle.playerDragons[i]) {
+            const selKey = state.battle.playerDragons[i];
+            const selCfg = DRAGON_CONFIGS[selKey];
+            ctx.save();
+            ctx.textAlign = 'center';
+            // "Pick your dragon!" prompt
+            ctx.font = 'bold 11px monospace';
+            ctx.fillStyle = '#4DD0E1';
+            ctx.fillText('Pick your dragon!', cx, cy - 50);
+            // Dragon name
+            ctx.font = 'bold 12px monospace';
+            ctx.fillStyle = selCfg.color;
+            ctx.fillText(selCfg.name, cx, cy - 36);
+            // Left/right arrows hint
+            ctx.font = '10px monospace';
+            ctx.fillStyle = '#FFFFFF';
+            ctx.globalAlpha = 0.7;
+            ctx.fillText('\u25C4 \u25BA', cx, cy - 24);
+            ctx.globalAlpha = 1;
+            ctx.restore();
+          }
           continue;
         }
 
@@ -4422,7 +4490,7 @@
       tripleShot: 'TRIPLE SHOT', giantShot: 'GIANT SHOT', rapidFire: 'RAPID FIRE',
       magnet: 'MAGNET', timeSlow: 'TIME SLOW', starShield: 'STAR SHIELD',
       giantDragon: 'GIANT DRAGON', clone: 'CLONE', rainbowTrail: 'RAINBOW TRAIL',
-      friendBeam: 'FRIENDSHIP BEAM',
+      friendBeam: 'FRIENDSHIP BEAM', dragonEgg: 'DRAGON EGG!',
     };
 
     const POWER_TYPES = ['tripleShot', 'giantShot', 'rapidFire', 'clone', 'timeSlow', 'friendBeam'];
@@ -4477,6 +4545,22 @@
         case 'clone':        b.clone = 10; break;
         case 'rainbowTrail': b.rainbowTrail = 10; b.trailPoints = []; break;
         case 'friendBeam':   state.battle.friendBeam = 10; break;
+        case 'dragonEgg': {
+          const dragonKeys = Object.keys(DRAGON_CONFIGS);
+          const currentKey = state.battle.playerDragons[playerIdx];
+          const otherKeys = dragonKeys.filter(k => k !== currentKey);
+          const newKey = otherKeys[Math.floor(Math.random() * otherKeys.length)];
+          state.battle.playerDragons[playerIdx] = newKey;
+          b.superMeter = Math.min(SUPER_METER_MAX, b.superMeter + 15);
+          state.battle.effects.push({
+            type: 'powerUpText',
+            x: b.x, y: BATTLE_PLAYER_Y - 30,
+            timer: 2.0, maxTimer: 2.0,
+            text: DRAGON_CONFIGS[newKey].name + '!',
+            color: DRAGON_CONFIGS[newKey].color,
+          });
+          break;
+        }
       }
 
       // Dynamic enemy compensation for power types (gated by cooldown)
@@ -5318,6 +5402,32 @@
     // SUPER MOVES
     // ============================================================
 
+    function swapDragon(playerIdx) {
+      if (state.screen !== 'battle') return;
+      const dragonKeys = Object.keys(DRAGON_CONFIGS);
+      const currentKey = state.battle.playerDragons[playerIdx];
+      if (!currentKey) return;
+      const currentIndex = dragonKeys.indexOf(currentKey);
+      const nextIndex = (currentIndex + 1) % dragonKeys.length;
+      state.battle.playerDragons[playerIdx] = dragonKeys[nextIndex];
+
+      // Cost: reduce super meter to 75% of current
+      const bp = state.battle.battlePlayers[playerIdx];
+      bp.superMeter = Math.floor(bp.superMeter * 0.75);
+
+      // Visual effect
+      state.battle.effects.push({
+        type: 'powerUpText',
+        x: bp.x, y: BATTLE_PLAYER_Y - 30,
+        timer: 1.5, maxTimer: 1.5,
+        text: DRAGON_CONFIGS[dragonKeys[nextIndex]].name + '!',
+        color: DRAGON_CONFIGS[dragonKeys[nextIndex]].color,
+      });
+
+      // Brief invincibility during swap
+      bp.invTimer = Math.max(bp.invTimer, 0.5);
+    }
+
     function activateSuper(playerIdx) {
       const b = state.battle.battlePlayers[playerIdx];
       if (!b || !b.alive || b.superMeter < SUPER_METER_MAX) return;
@@ -5482,6 +5592,30 @@
       }
     });
 
+    function updateSwapButtons() {
+      const swapL = document.getElementById('swap-btn-left');
+      const swapR = document.getElementById('swap-btn-right');
+      if (state.screen === 'battle' && isTouchDevice) {
+        const showLeft = state.isGuest ? false : (state.activePlayerCount >= 1);
+        const showRight = state.isHost ? false : (state.activePlayerCount >= 2 || state.isGuest);
+        swapL.style.display = showLeft ? 'block' : 'none';
+        swapR.style.display = showRight ? 'block' : 'none';
+      } else {
+        swapL.style.display = 'none';
+        swapR.style.display = 'none';
+      }
+    }
+
+    // Swap button touch events
+    document.getElementById('swap-btn-left').addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      swapDragon(0);
+    });
+    document.getElementById('swap-btn-right').addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      swapDragon(1);
+    });
+
     // Keyboard super: spacebar for player 0 battle slot (or solo player in 1P), 'e'/'E' for player 1 battle slot
     document.addEventListener('keydown', function(e) {
       if (state.screen !== 'battle') return;
@@ -5493,12 +5627,23 @@
         if (state.activePlayerCount >= 2) {
           activateSuper(1);
         }
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        // Tab: P1 swap dragon
+        swapDragon(0);
+      } else if (e.key === 'q' || e.key === 'Q') {
+        // Q: P2 swap dragon
+        if (state.activePlayerCount >= 2) {
+          swapDragon(1);
+        }
       } else if (e.key === 'Escape') {
         // Return to title from battle
         const btnL = document.getElementById('super-btn-left');
         const btnR = document.getElementById('super-btn-right');
         btnL.style.display = 'none';
         btnR.style.display = 'none';
+        document.getElementById('swap-btn-left').style.display = 'none';
+        document.getElementById('swap-btn-right').style.display = 'none';
         document.getElementById('dragon-select-touch').style.display = 'none';
         returnToTitle();
         updateTitleTouchUI();
@@ -5613,6 +5758,7 @@
         }
         updateScreenShake(dt);
         updateSuperButtons();
+        updateSwapButtons();
 
         drawBattleBackground();
         ctx.save();
