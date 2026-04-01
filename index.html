@@ -2445,6 +2445,9 @@
       shadowKnight:   { name: 'Shadow Knight',    hp: 3, speed: 35,  points: 40, color: '#4A148C', size: 26, pattern: 'formation' },
       stormCloud:     { name: 'Storm Cloud',      hp: 4, speed: 25,  points: 50, color: '#311B92', size: 32, pattern: 'straight', shoots: true },
       elderDragon:    { name: 'Elder Dragon',     hp: 40, speed: 30, points: 200, color: '#1A0033', size: 48, pattern: 'boss' },
+      stormKing:      { name: 'Storm King',       hp: 50, speed: 25, points: 250, color: '#1A237E', size: 56, pattern: 'boss', shoots: true },
+      slimeQueen:     { name: 'Slime Queen',      hp: 35, speed: 35, points: 200, color: '#6A1B9A', size: 52, pattern: 'boss', splits: true },
+      megaDragon:     { name: 'MEGA DRAGON',      hp: 80, speed: 20, points: 500, color: '#1A0033', size: 80, pattern: 'boss', shoots: true },
     };
 
     const WAVE_DEFS = [
@@ -2466,8 +2469,8 @@
       { enemies: ['corruptedDragon','corruptedDragon','corruptedDragon','shadowSlime','shadowSlime'], pattern: 'diagonal' },
       // Wave 9: mushroom madness
       { enemies: ['darkMushroom','darkMushroom','darkMushroom','darkMushroom','shadowSlime','corruptedDragon'], pattern: 'circle' },
-      // Wave 10: BOSS (harder)
-      { enemies: ['elderDragon', 'shadowSlime', 'shadowSlime', 'darkButterfly', 'darkButterfly', 'corruptedDragon'], pattern: 'boss' },
+      // Wave 10: STORM KING BOSS
+      { enemies: ['stormKing', 'darkButterfly', 'darkButterfly', 'shadowSlime', 'shadowSlime', 'corruptedDragon'], pattern: 'boss' },
       // Wave 11: knights appear
       { enemies: ['shadowKnight','shadowKnight','shadowSlime','shadowSlime','corruptedDragon','corruptedDragon','darkButterfly','darkButterfly'], pattern: 'vshape' },
       // Wave 12: rush wave 2
@@ -2476,8 +2479,8 @@
       { enemies: ['stormCloud','stormCloud','shadowKnight','shadowKnight','shadowSlime','shadowSlime'], pattern: 'row' },
       // Wave 14: everything
       { enemies: ['shadowPuff','darkButterfly','shadowSlime','corruptedDragon','darkMushroom','shadowKnight','stormCloud'], pattern: 'circle' },
-      // Wave 15: BOSS
-      { enemies: ['elderDragon', 'shadowKnight', 'shadowKnight', 'corruptedDragon', 'corruptedDragon', 'stormCloud'], pattern: 'boss' },
+      // Wave 15: SLIME QUEEN BOSS
+      { enemies: ['slimeQueen', 'shadowKnight', 'shadowKnight', 'corruptedDragon', 'corruptedDragon', 'darkMushroom', 'darkMushroom'], pattern: 'boss' },
     ];
 
     const BATTLE_PLAYER_SPEED = 200;
@@ -3258,9 +3261,10 @@
         // Speed scaling: 5% per wave (up from 3%), rush waves get extra 20%
         const speedMult = (1 + (waveNum - 1) * 0.05) * (isRush ? 1.2 : 1);
 
-        const isBossEnemy = typeName === 'elderDragon';
-        const bossHp = isBossEnemy ? (40 + waveNum * 4) : typeConfig.hp;
-        state.battle.enemies.push({
+        const isBossEnemy = typeConfig.pattern === 'boss';
+        const baseHp = typeConfig.hp;
+        const bossHp = isBossEnemy ? (baseHp + waveNum * 4) : baseHp;
+        const enemy = {
           type: typeName,
           x: startX,
           y: startY,
@@ -3279,17 +3283,46 @@
           spawnTime: state.time,
           frozen: 0,
           vined: 0,
-        });
+        };
+        // Dive bomber props for corruptedDragon
+        if (typeName === 'corruptedDragon') {
+          enemy.diveTimer = 5 + Math.random() * 5;
+          enemy.diving = false;
+          enemy.divePhase = null;
+          enemy.diveSpeed = 0;
+          enemy.originalY = 0;
+          enemy.diveTargetX = 0;
+        }
+        // Slime Queen hit counter
+        if (typeName === 'slimeQueen') {
+          enemy.hitCount = 0;
+          enemy.hasSplit = false;
+        }
+        // Mega Dragon phase tracking
+        if (typeName === 'megaDragon') {
+          enemy.phase2Applied = false;
+          enemy.phase3Applied = false;
+          enemy.minionTimer = 5;
+        }
+        state.battle.enemies.push(enemy);
       }
     }
 
     function generateWave(waveNum) {
       if (waveNum % 5 === 0) {
+        let bossType;
+        if (waveNum % 20 === 0) {
+          bossType = 'megaDragon';
+        } else if (waveNum % 10 === 0) {
+          bossType = 'stormKing';
+        } else {
+          bossType = ['elderDragon', 'slimeQueen'][Math.floor(Math.random() * 2)];
+        }
         const escorts = Math.min(3 + Math.floor(waveNum / 5), 8);
         const escortPool = waveNum < 20
           ? ['shadowSlime', 'corruptedDragon', 'darkButterfly']
           : ['shadowKnight', 'stormCloud', 'corruptedDragon', 'shadowSlime'];
-        const enemies = ['elderDragon'];
+        const enemies = [bossType];
         for (let i = 0; i < escorts; i++) {
           enemies.push(escortPool[Math.floor(Math.random() * escortPool.length)]);
         }
@@ -3345,7 +3378,7 @@
             for (let p = 0; p < state.activePlayerCount; p++) {
               state.battle.battlePlayers[p].superMeter = Math.min(SUPER_METER_MAX, state.battle.battlePlayers[p].superMeter + meterGain);
             }
-            if (e.type === 'elderDragon') {
+            if (ENEMY_TYPES[e.type] && ENEMY_TYPES[e.type].pattern === 'boss') {
               // Power-up rain after boss!
               triggerScreenShake(8, 0.5);
               for (let d = 0; d < 7; d++) {
@@ -3373,7 +3406,42 @@
 
         const age = state.time - e.spawnTime;
 
-        // Movement patterns
+        // Dive bomber logic for corruptedDragon
+        if (e.type === 'corruptedDragon' && !e.curing && !e.diving) {
+          if (!e.diveTimer) e.diveTimer = 5 + Math.random() * 5;
+          e.diveTimer -= eDt;
+          if (e.diveTimer <= 0 && e.y > 30 && e.y < CANVAS_H / 2) {
+            e.diving = true;
+            e.divePhase = 'down';
+            e.diveSpeed = e.speed * 4;
+            e.originalY = e.y;
+            let nearestX = CANVAS_W / 2;
+            for (let pi = 0; pi < state.activePlayerCount; pi++) {
+              const bp = state.battle.battlePlayers[pi];
+              if (bp.alive) nearestX = bp.x;
+            }
+            e.diveTargetX = nearestX;
+          }
+        }
+
+        if (e.type === 'corruptedDragon' && e.diving) {
+          if (e.divePhase === 'down') {
+            e.y += e.diveSpeed * eDt;
+            e.x += (e.diveTargetX - e.x) * 3 * eDt;
+            if (e.y > BATTLE_PLAYER_Y - 30) {
+              e.divePhase = 'up';
+            }
+          } else if (e.divePhase === 'up') {
+            e.y -= e.diveSpeed * 0.7 * eDt;
+            if (e.y < e.originalY) {
+              e.diving = false;
+              e.diveTimer = 8 + Math.random() * 5;
+            }
+          }
+        }
+
+        // Movement patterns (skip if diving)
+        if (!e.diving) {
         switch (e.pattern) {
           case 'straight':
             e.y += e.speed * eDt;
@@ -3409,9 +3477,26 @@
             }
             break;
         }
+        } // end if (!e.diving)
+
+        // shadowSlime and corruptedDragon shooting
+        if ((e.type === 'shadowSlime' || e.type === 'corruptedDragon') && e.y > 50 && e.y < CANVAS_H - 100) {
+          if (!e.shootTimer) e.shootTimer = 2 + Math.random() * 3;
+          e.shootTimer -= eDt;
+          if (e.shootTimer <= 0) {
+            e.shootTimer = e.type === 'shadowSlime' ? 4 : 3;
+            state.battle.shots.push({
+              x: e.x, y: e.y + e.size / 2,
+              vx: (Math.random() - 0.5) * 20,
+              vy: e.type === 'shadowSlime' ? 80 : 120,
+              type: 'enemy', color: e.type === 'shadowSlime' ? '#9575CD' : '#7C4DFF',
+              playerId: -1, pierce: false, isEnemy: true,
+            });
+          }
+        }
 
         // Storm clouds shoot
-        if (e.shoots) {
+        if (e.type === 'stormCloud' && e.shoots) {
           e.shootTimer -= eDt;
           if (e.shootTimer <= 0) {
             e.shootTimer = 3;
@@ -3427,7 +3512,6 @@
         // Elder Dragon boss shooting and enrage phase
         if (e.type === 'elderDragon') {
           const enraged = e.hp <= e.maxHp / 2;
-          // Apply enrage speed multiplier once
           if (enraged && !e.enrageApplied) {
             e.speed *= 1.5;
             e.enrageApplied = true;
@@ -3438,12 +3522,84 @@
           if (e.shootTimer <= 0) {
             e.shootTimer = shootInterval;
             if (enraged) {
-              // 3-way spread
               state.battle.shots.push({ x: e.x, y: e.y + e.size / 2, vx: -40, vy: 120, type: 'enemy', color: '#FF5252', playerId: -1, pierce: false, isEnemy: true });
               state.battle.shots.push({ x: e.x, y: e.y + e.size / 2, vx: 0, vy: 130, type: 'enemy', color: '#FF5252', playerId: -1, pierce: false, isEnemy: true });
               state.battle.shots.push({ x: e.x, y: e.y + e.size / 2, vx: 40, vy: 120, type: 'enemy', color: '#FF5252', playerId: -1, pierce: false, isEnemy: true });
             } else {
               state.battle.shots.push({ x: e.x, y: e.y + e.size / 2, vx: 0, vy: 100, type: 'enemy', color: '#7C4DFF', playerId: -1, pierce: false, isEnemy: true });
+            }
+          }
+        }
+
+        // Storm King boss shooting -- 5-way lightning spread
+        if (e.type === 'stormKing') {
+          if (!e.shootTimer) e.shootTimer = 2;
+          e.shootTimer -= eDt;
+          const enraged = e.hp <= e.maxHp / 2;
+          if (e.shootTimer <= 0) {
+            e.shootTimer = enraged ? 1.2 : 2;
+            for (let s = -2; s <= 2; s++) {
+              state.battle.shots.push({
+                x: e.x + s * 15, y: e.y + e.size / 2,
+                vx: s * 30, vy: 140,
+                type: 'enemy', color: '#FFEB3B', playerId: -1,
+                pierce: false, isEnemy: true,
+              });
+            }
+            if (enraged) triggerScreenShake(3, 0.15);
+          }
+        }
+
+        // Mega Dragon boss -- 3-phase shooting and minion spawning
+        if (e.type === 'megaDragon') {
+          const hpPct = e.hp / e.maxHp;
+          const phase = hpPct > 0.66 ? 1 : hpPct > 0.33 ? 2 : 3;
+
+          if (!e.shootTimer) e.shootTimer = 2.5;
+          if (!e.minionTimer) e.minionTimer = 5;
+          e.shootTimer -= eDt;
+
+          if (phase === 2 && !e.phase2Applied) { e.speed *= 1.3; e.phase2Applied = true; }
+          if (phase === 3 && !e.phase3Applied) { e.speed *= 1.5; e.phase3Applied = true; }
+
+          const shootInterval = phase === 1 ? 2.5 : phase === 2 ? 1.8 : 1.2;
+          const spreadCount = phase === 1 ? 3 : phase === 2 ? 5 : 7;
+
+          if (e.shootTimer <= 0) {
+            e.shootTimer = shootInterval;
+            const halfSpread = Math.floor(spreadCount / 2);
+            for (let s = -halfSpread; s <= halfSpread; s++) {
+              state.battle.shots.push({
+                x: e.x + s * 12, y: e.y + e.size / 2,
+                vx: s * 25, vy: 110 + phase * 10,
+                type: 'enemy', color: phase === 3 ? '#FF5252' : '#FF8A65', playerId: -1,
+                pierce: false, isEnemy: true,
+              });
+            }
+            if (phase >= 2) triggerScreenShake(phase * 2, 0.2);
+          }
+
+          // Minion spawning in phases 2-3
+          if (phase >= 2) {
+            e.minionTimer -= eDt;
+            const minionInterval = phase === 2 ? 5 : 3;
+            if (e.minionTimer <= 0) {
+              e.minionTimer = minionInterval;
+              const minionCount = phase === 2 ? 2 : 3;
+              for (let m = 0; m < minionCount; m++) {
+                const tc = ENEMY_TYPES['darkButterfly'];
+                state.battle.enemies.push({
+                  type: 'darkButterfly',
+                  x: e.x + (Math.random() - 0.5) * 60,
+                  y: e.y + e.size / 2,
+                  hp: tc.hp, maxHp: tc.hp,
+                  speed: tc.speed * 1.3,
+                  size: tc.size, color: tc.color, pattern: 'zigzag',
+                  timer: Math.random() * Math.PI * 2,
+                  curing: false, cureTimer: 0, shoots: false, splits: false, shootTimer: 0,
+                  spawnTime: state.time, frozen: 0, vined: 0,
+                });
+              }
             }
           }
         }
@@ -3480,12 +3636,49 @@
             e.hp -= dmg;
             state.battle.effects.push({ x: s.x, y: s.y, type: 'hit', timer: 0.3, maxTimer: 0.3 });
 
+            // Slime Queen: spawn mini slime every 3rd hit
+            if (e.type === 'slimeQueen' && e.hp > 0) {
+              if (!e.hitCount) e.hitCount = 0;
+              e.hitCount++;
+              if (e.hitCount % 3 === 0) {
+                const tc = ENEMY_TYPES['shadowSlime'];
+                state.battle.enemies.push({
+                  type: 'shadowSlime',
+                  x: e.x + (Math.random() - 0.5) * 40,
+                  y: e.y + 10,
+                  hp: tc.hp, maxHp: tc.hp,
+                  speed: tc.speed * 1.2,
+                  size: tc.size, color: tc.color, pattern: 'bounce',
+                  timer: Math.random() * Math.PI * 2,
+                  curing: false, cureTimer: 0, shoots: false, splits: false, shootTimer: 0,
+                  spawnTime: state.time, frozen: 0, vined: 0,
+                });
+              }
+            }
+
+            // Slime Queen: split at half HP
+            if (e.type === 'slimeQueen' && e.hp > 0 && e.hp <= e.maxHp / 2 && !e.hasSplit) {
+              e.hasSplit = true;
+              for (let sp = 0; sp < 2; sp++) {
+                state.battle.enemies.push({
+                  type: 'shadowSlime',
+                  x: e.x + (sp === 0 ? -30 : 30), y: e.y,
+                  hp: Math.ceil(e.hp / 2), maxHp: Math.ceil(e.hp / 2),
+                  speed: e.speed * 1.5, size: 30,
+                  color: '#7B1FA2', pattern: 'bounce',
+                  timer: Math.random() * Math.PI * 2,
+                  curing: false, cureTimer: 0, shoots: false, splits: false, shootTimer: 0,
+                  spawnTime: state.time, frozen: 0, vined: 0,
+                });
+              }
+            }
+
             if (e.hp <= 0) {
               e.curing = true;
               e.cureTimer = 0;
 
               // Splits
-              if (e.splits) {
+              if (e.splits && e.type !== 'slimeQueen') {
                 for (let sp = 0; sp < 2; sp++) {
                   state.battle.enemies.push({
                     type: e.type,
@@ -3635,18 +3828,19 @@
 
       if (b.waveState === 'waiting') {
         b.waveTimer += dt;
-        if (b.waveTimer >= 2) {
+        if (b.waveTimer >= 1.5) {
           b.waveTimer = 0;
           startNextWave();
         }
       } else if (b.waveState === 'active') {
-        if (b.enemies.length === 0) {
+        const remaining = b.enemies.filter(e => !e.curing).length;
+        if (remaining <= 2) {
           b.waveState = 'clearing';
           b.waveTimer = 0;
         }
       } else if (b.waveState === 'clearing') {
         b.waveTimer += dt;
-        if (b.waveTimer >= 2) {
+        if (b.waveTimer >= 1.2) {
           b.waveState = 'waiting';
           b.waveTimer = 0;
         }
@@ -3912,6 +4106,14 @@
             break;
           }
           case 'corruptedDragon':
+            // Speed trail when diving
+            if (e.diving) {
+              for (let t = 1; t <= 3; t++) {
+                ctx.globalAlpha = 0.2 / t;
+                drawSprite(DRAGON_SPRITES.shadow, ex - hsz, ey - hsz - t * 12, sz);
+              }
+              ctx.globalAlpha = 1;
+            }
             drawSprite(DRAGON_SPRITES.shadow, ex - hsz, ey - hsz, sz);
             break;
           case 'darkMushroom': {
@@ -3969,7 +4171,6 @@
               ctx.globalAlpha = 1;
               ctx.restore();
             }
-            // Tint red/orange when enraged
             if (enraged) {
               ctx.save();
               ctx.globalCompositeOperation = 'multiply';
@@ -3979,31 +4180,118 @@
               ctx.fill();
               ctx.restore();
             }
-            // Large shadow dragon sprite
             drawSprite(DRAGON_SPRITES.shadow, ex - hsz, ey - hsz, sz);
-            // Big HP bar at top of screen
-            if (!e.curing) {
-              const hpPct = e.hp / e.maxHp;
-              const bossBarW = 300;
-              const bossBarH = 14;
-              const bossBarX = (CANVAS_W - bossBarW) / 2;
-              const bossBarY = 60;
-              // Background
-              ctx.fillStyle = '#222';
-              ctx.fillRect(bossBarX - 2, bossBarY - 2, bossBarW + 4, bossBarH + 4);
-              // Fill
-              ctx.fillStyle = enraged ? '#FF5252' : (hpPct > 0.5 ? '#4CAF50' : '#FF9800');
-              ctx.fillRect(bossBarX, bossBarY, bossBarW * hpPct, bossBarH);
-              // Border
-              ctx.strokeStyle = enraged ? '#FF5252' : '#666';
-              ctx.lineWidth = 1;
-              ctx.strokeRect(bossBarX - 2, bossBarY - 2, bossBarW + 4, bossBarH + 4);
-              // Label
-              ctx.fillStyle = '#fff';
-              ctx.font = 'bold 11px monospace';
-              ctx.textAlign = 'center';
-              ctx.fillText(enraged ? 'ELDER DRAGON - ENRAGED!' : 'ELDER DRAGON', CANVAS_W / 2, bossBarY - 6);
+            break;
+          }
+          case 'stormKing': {
+            // Massive storm cloud (5+ overlapping circles)
+            const skEnraged = e.hp <= e.maxHp / 2;
+            const skColor = skEnraged ? '#0D47A1' : '#1A237E';
+            if (damaged && Math.floor(state.time * 15) % 3 === 0) ctx.fillStyle = '#fff';
+            else ctx.fillStyle = skColor;
+            ctx.beginPath(); ctx.arc(ex - hsz * 0.5, ey, hsz * 0.45, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(ex + hsz * 0.5, ey, hsz * 0.45, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(ex, ey - hsz * 0.3, hsz * 0.55, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(ex - hsz * 0.25, ey + hsz * 0.2, hsz * 0.4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(ex + hsz * 0.25, ey + hsz * 0.2, hsz * 0.4, 0, Math.PI * 2); ctx.fill();
+            // Lightning bolt shapes inside
+            ctx.fillStyle = '#FFEB3B';
+            ctx.font = (sz * 0.35) + 'px serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('\u26A1', ex - 8, ey + 6);
+            ctx.fillText('\u26A1', ex + 8, ey + 6);
+            // Electric sparks at half HP
+            if (skEnraged) {
+              for (let sp = 0; sp < 4; sp++) {
+                const spAngle = state.time * 6 + sp * Math.PI / 2;
+                const spX = ex + Math.cos(spAngle) * (hsz + 5);
+                const spY = ey + Math.sin(spAngle) * (hsz + 5);
+                ctx.fillStyle = '#FFEB3B';
+                ctx.globalAlpha = 0.5 + Math.sin(state.time * 12 + sp) * 0.5;
+                ctx.beginPath(); ctx.arc(spX, spY, 3, 0, Math.PI * 2); ctx.fill();
+              }
+              ctx.globalAlpha = 1;
             }
+            break;
+          }
+          case 'slimeQueen': {
+            // Big jiggly slime
+            const sqSquish = Math.sin(state.time * 3) * 0.2 + 1;
+            if (damaged && Math.floor(state.time * 15) % 3 === 0) ctx.fillStyle = '#fff';
+            else ctx.fillStyle = '#6A1B9A';
+            ctx.beginPath();
+            ctx.ellipse(ex, ey, hsz * sqSquish, hsz / sqSquish, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Cute angry eyes
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(ex - hsz * 0.35, ey - hsz * 0.15, hsz * 0.25, hsz * 0.2);
+            ctx.fillRect(ex + hsz * 0.1, ey - hsz * 0.15, hsz * 0.25, hsz * 0.2);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(ex - hsz * 0.28, ey - hsz * 0.1, hsz * 0.12, hsz * 0.12);
+            ctx.fillRect(ex + hsz * 0.17, ey - hsz * 0.1, hsz * 0.12, hsz * 0.12);
+            // Angry eyebrows
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(ex - hsz * 0.4, ey - hsz * 0.3); ctx.lineTo(ex - hsz * 0.1, ey - hsz * 0.2); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(ex + hsz * 0.4, ey - hsz * 0.3); ctx.lineTo(ex + hsz * 0.1, ey - hsz * 0.2); ctx.stroke();
+            // Tiny crown (yellow triangle)
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.moveTo(ex - 8, ey - hsz / sqSquish - 2);
+            ctx.lineTo(ex + 8, ey - hsz / sqSquish - 2);
+            ctx.lineTo(ex, ey - hsz / sqSquish - 14);
+            ctx.fill();
+            // Cracks at half HP
+            if (e.hp <= e.maxHp / 2) {
+              ctx.strokeStyle = '#4A148C';
+              ctx.lineWidth = 2;
+              ctx.beginPath(); ctx.moveTo(ex - 5, ey - 5); ctx.lineTo(ex - 12, ey + 8); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(ex + 3, ey - 3); ctx.lineTo(ex + 10, ey + 10); ctx.stroke();
+            }
+            break;
+          }
+          case 'megaDragon': {
+            const mdPhase = (e.hp / e.maxHp) > 0.66 ? 1 : (e.hp / e.maxHp) > 0.33 ? 2 : 3;
+            // Glowing aura
+            const auraColor = mdPhase === 3 ? '#FF1744' : mdPhase === 2 ? '#FF6D00' : '#FF8A65';
+            const auraPulse = 0.3 + 0.3 * Math.sin(state.time * (4 + mdPhase * 2));
+            ctx.save();
+            ctx.globalAlpha = auraPulse;
+            ctx.fillStyle = auraColor;
+            ctx.beginPath();
+            ctx.arc(ex, ey, hsz + 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.restore();
+            // Wings (triangles on sides that flap)
+            const wingFlap = Math.sin(state.time * 5) * 0.3 + 0.7;
+            ctx.fillStyle = '#2D0050';
+            // Left wing
+            ctx.beginPath();
+            ctx.moveTo(ex - hsz * 0.6, ey - hsz * 0.2);
+            ctx.lineTo(ex - hsz * 1.3, ey - hsz * wingFlap);
+            ctx.lineTo(ex - hsz * 0.6, ey + hsz * 0.3);
+            ctx.fill();
+            // Right wing
+            ctx.beginPath();
+            ctx.moveTo(ex + hsz * 0.6, ey - hsz * 0.2);
+            ctx.lineTo(ex + hsz * 1.3, ey - hsz * wingFlap);
+            ctx.lineTo(ex + hsz * 0.6, ey + hsz * 0.3);
+            ctx.fill();
+            // Main body -- shadow dragon at 80px
+            drawSprite(DRAGON_SPRITES.shadow, ex - hsz, ey - hsz, sz);
+            // Horns (triangles on top)
+            ctx.fillStyle = '#4A0072';
+            ctx.beginPath();
+            ctx.moveTo(ex - 10, ey - hsz + 4);
+            ctx.lineTo(ex - 6, ey - hsz - 12);
+            ctx.lineTo(ex - 2, ey - hsz + 4);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(ex + 2, ey - hsz + 4);
+            ctx.lineTo(ex + 6, ey - hsz - 12);
+            ctx.lineTo(ex + 10, ey - hsz + 4);
+            ctx.fill();
             break;
           }
           default: {
@@ -4013,6 +4301,40 @@
             ctx.fill();
             break;
           }
+        }
+
+        // Generic boss HP bar for all boss-type enemies
+        if (ENEMY_TYPES[e.type] && ENEMY_TYPES[e.type].pattern === 'boss' && !e.curing) {
+          const hpPct = e.hp / e.maxHp;
+          const bossBarW = 300;
+          const bossBarH = 14;
+          const bossBarX = (CANVAS_W - bossBarW) / 2;
+          const bossBarY = 60;
+          const bossEnraged = e.hp <= e.maxHp / 2;
+          // Background
+          ctx.fillStyle = '#222';
+          ctx.fillRect(bossBarX - 2, bossBarY - 2, bossBarW + 4, bossBarH + 4);
+          // Fill color
+          let barColor;
+          if (e.type === 'megaDragon') {
+            const mdP = hpPct > 0.66 ? 1 : hpPct > 0.33 ? 2 : 3;
+            barColor = mdP === 3 ? '#FF1744' : mdP === 2 ? '#FF6D00' : '#FF8A65';
+          } else {
+            barColor = bossEnraged ? '#FF5252' : (hpPct > 0.5 ? '#4CAF50' : '#FF9800');
+          }
+          ctx.fillStyle = barColor;
+          ctx.fillRect(bossBarX, bossBarY, bossBarW * hpPct, bossBarH);
+          // Border
+          ctx.strokeStyle = bossEnraged ? '#FF5252' : '#666';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(bossBarX - 2, bossBarY - 2, bossBarW + 4, bossBarH + 4);
+          // Label
+          const bossName = ENEMY_TYPES[e.type].name.toUpperCase();
+          const labelSuffix = bossEnraged ? ' - ENRAGED!' : '';
+          ctx.fillStyle = e.type === 'megaDragon' ? '#FF5252' : '#fff';
+          ctx.font = 'bold 11px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(bossName + labelSuffix, CANVAS_W / 2, bossBarY - 6);
         }
       }
     }
