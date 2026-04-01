@@ -299,6 +299,26 @@
     function drawPlayers() {
       for (const p of players) {
         drawSprite(p.sprite, p.x * TILE, (p.y + UI_ROWS) * TILE, TILE);
+
+        if (p.name === 'Harper') {
+          const sx = p.x * TILE + TILE - 6;
+          const sy = (p.y + UI_ROWS) * TILE + 2;
+          const twinkle = Math.sin(state.time * 3) * 0.3 + 0.7;
+          ctx.fillStyle = `rgba(255, 255, 255, ${twinkle})`;
+          ctx.font = '8px serif';
+          ctx.textAlign = 'left';
+          ctx.fillText('\u2744', sx, sy + 8);
+        }
+
+        if (p.name === 'Audrey') {
+          const sx = p.x * TILE + TILE - 6;
+          const sy = (p.y + UI_ROWS) * TILE + 2;
+          const twinkle = Math.sin(state.time * 4) * 0.3 + 0.7;
+          ctx.fillStyle = `rgba(200, 150, 255, ${twinkle})`;
+          ctx.font = '8px serif';
+          ctx.textAlign = 'left';
+          ctx.fillText('\u2726', sx, sy + 8);
+        }
       }
     }
 
