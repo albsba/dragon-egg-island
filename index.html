@@ -2857,17 +2857,9 @@
           e.cureTimer += dt;
           if (e.cureTimer >= 1) {
             // Spawn drop
-            const roll = Math.random();
-            let cumulative = 0;
-            for (const dKey of Object.keys(DROP_TYPES)) {
-              cumulative += DROP_TYPES[dKey].chance;
-              if (roll < cumulative) {
-                state.battle.drops.push({ x: e.x, y: e.y, type: dKey, timer: 5 });
-                break;
-              }
-            }
+            spawnDrop(e.x, e.y);
             // Add cure effect
-            state.battle.effects.push({ x: e.x, y: e.y, type: 'cure', timer: 0.6 });
+            state.battle.effects.push({ x: e.x, y: e.y, type: 'cure', timer: 0.6, maxTimer: 0.6 });
             // Add super meter to all players
             const meterGain = 5;
             for (let p = 0; p < state.activePlayerCount; p++) {
@@ -2962,7 +2954,7 @@
           if (s.x - sw / 2 < e.x + es && s.x + sw / 2 > e.x - es &&
               s.y - 4 < e.y + es && s.y + 4 > e.y - es) {
             e.hp--;
-            state.battle.effects.push({ x: s.x, y: s.y, type: 'hit', timer: 0.3 });
+            state.battle.effects.push({ x: s.x, y: s.y, type: 'hit', timer: 0.3, maxTimer: 0.3 });
 
             if (e.hp <= 0) {
               e.curing = true;
@@ -3041,12 +3033,13 @@
       if (b.shieldActive) {
         b.shieldActive = false;
         b.invTimer = 0.5;
-        state.battle.effects.push({ x: b.x, y: BATTLE_PLAYER_Y, type: 'shieldBreak', timer: 0.5 });
+        state.battle.effects.push({ x: b.x, y: BATTLE_PLAYER_Y, type: 'shieldBreak', timer: 0.5, maxTimer: 0.5 });
         return;
       }
       b.hearts--;
       b.invTimer = 1;
       state.battle.hitStreak[playerIdx]++;
+      state.battle.effects.push({ x: b.x, y: BATTLE_PLAYER_Y, type: 'playerHit', timer: 0.4, maxTimer: 0.4 });
       if (b.hearts <= 0) {
         b.alive = false;
         b.respawnTimer = RESPAWN_TIME;
@@ -3334,6 +3327,353 @@
     }
 
     // ============================================================
+    // DROPS, EFFECTS & HUD
+    // ============================================================
+
+    function spawnDrop(x, y) {
+      const roll = Math.random();
+      let cumulative = 0;
+      // If any player has hitStreak >= 3, boost heart chance (secret easy mode)
+      let heartBoost = 0;
+      for (let p = 0; p < state.activePlayerCount; p++) {
+        if (state.battle.hitStreak[p] >= 3) { heartBoost = 0.2; break; }
+      }
+      for (const dKey of Object.keys(DROP_TYPES)) {
+        let chance = DROP_TYPES[dKey].chance;
+        if (dKey === 'heart') chance += heartBoost;
+        cumulative += chance;
+        if (roll < cumulative) {
+          state.battle.drops.push({
+            type: dKey, x: x, y: y, vy: 40,
+            color: DROP_TYPES[dKey].color,
+            symbol: DROP_TYPES[dKey].symbol,
+          });
+          return;
+        }
+      }
+    }
+
+    function updateDrops(dt) {
+      const drops = state.battle.drops;
+      for (let i = drops.length - 1; i >= 0; i--) {
+        const d = drops[i];
+        d.y += d.vy * dt;
+
+        // Check collision with active players
+        for (let pi = 0; pi < state.activePlayerCount; pi++) {
+          const b = state.battle.battlePlayers[pi];
+          if (!b.alive) continue;
+          if (Math.abs(d.x - b.x) < 20 && Math.abs(d.y - BATTLE_PLAYER_Y) < 20) {
+            applyDrop(d.type, pi);
+            drops.splice(i, 1);
+            i = Math.min(i, drops.length - 1);
+            break;
+          }
+        }
+
+        // Remove off-screen drops
+        if (i >= 0 && i < drops.length && drops[i].y > CANVAS_H + 20) {
+          drops.splice(i, 1);
+        }
+      }
+    }
+
+    function applyDrop(type, playerIdx) {
+      const b = state.battle.battlePlayers[playerIdx];
+      switch (type) {
+        case 'heart':
+          b.hearts = Math.min(MAX_HEARTS, b.hearts + 1);
+          break;
+        case 'superBoost':
+          b.superMeter = Math.min(SUPER_METER_MAX, b.superMeter + 25);
+          break;
+        case 'speedStar':
+          b.speedBoost = 5;
+          break;
+        case 'shield':
+          b.shieldActive = true;
+          break;
+      }
+      state.battle.effects.push({
+        x: b.x, y: BATTLE_PLAYER_Y - 20,
+        type: 'collect',
+        timer: 0, maxTimer: 0.8,
+        text: '+' + DROP_TYPES[type].symbol,
+        color: DROP_TYPES[type].color,
+      });
+    }
+
+    function drawDrops() {
+      for (const d of state.battle.drops) {
+        const bob = Math.sin(state.time * 4 + d.x * 0.1) * 3;
+        ctx.font = 'bold 18px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = d.color;
+        ctx.fillText(d.symbol, d.x, d.y + bob);
+      }
+      ctx.textBaseline = 'alphabetic';
+    }
+
+    function updateBattleEffects(dt) {
+      const effects = state.battle.effects;
+      for (let i = effects.length - 1; i >= 0; i--) {
+        const e = effects[i];
+        e.timer -= dt;
+        if (e.timer <= 0) {
+          effects.splice(i, 1);
+        }
+      }
+    }
+
+    function drawBattleEffects() {
+      for (const e of state.battle.effects) {
+        const progress = 1 - (e.timer / (e.maxTimer || 0.6));
+        const alpha = Math.max(0, e.timer / (e.maxTimer || 0.6));
+
+        switch (e.type) {
+          case 'cure': {
+            // 8 sparkles bursting outward in rainbow colors
+            for (let s = 0; s < 8; s++) {
+              const angle = (s / 8) * Math.PI * 2;
+              const dist = progress * 30;
+              const sx = e.x + Math.cos(angle) * dist;
+              const sy = e.y + Math.sin(angle) * dist;
+              const hue = (s * 45 + state.time * 200) % 360;
+              ctx.fillStyle = 'hsla(' + hue + ', 90%, 70%, ' + alpha + ')';
+              ctx.beginPath();
+              ctx.arc(sx, sy, 3 * alpha, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            break;
+          }
+          case 'hit': {
+            // Expanding white circle, fading
+            ctx.strokeStyle = 'rgba(255, 255, 255, ' + alpha + ')';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, progress * 15, 0, Math.PI * 2);
+            ctx.stroke();
+            break;
+          }
+          case 'playerHit': {
+            // Expanding red ring
+            ctx.strokeStyle = 'rgba(255, 50, 50, ' + alpha + ')';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, progress * 25, 0, Math.PI * 2);
+            ctx.stroke();
+            break;
+          }
+          case 'collect': {
+            // Floating "+" text upward, fading
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = e.color || '#fff';
+            ctx.font = 'bold 16px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(e.text || '+', e.x, e.y - progress * 30);
+            ctx.globalAlpha = 1;
+            break;
+          }
+          case 'shieldBreak': {
+            // Expanding green ring
+            ctx.strokeStyle = 'rgba(105, 240, 174, ' + alpha + ')';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, progress * 30, 0, Math.PI * 2);
+            ctx.stroke();
+            break;
+          }
+          case 'flameWave': {
+            // Orange semi-transparent horizontal band sweeping across screen
+            ctx.fillStyle = 'rgba(255, 100, 0, ' + (alpha * 0.4) + ')';
+            const bandY = CANVAS_H * (1 - progress);
+            ctx.fillRect(0, bandY - 30, CANVAS_W, 60);
+            break;
+          }
+          case 'freezeBlast': {
+            // Blue tint flash across whole screen
+            ctx.fillStyle = 'rgba(79, 195, 247, ' + (alpha * 0.3) + ')';
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+            break;
+          }
+          case 'vineBurst': {
+            // Green flash + vine-like shapes from edges
+            ctx.fillStyle = 'rgba(67, 160, 71, ' + (alpha * 0.25) + ')';
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+            for (let v = 0; v < 6; v++) {
+              const vy = (v / 6) * CANVAS_H;
+              ctx.strokeStyle = 'rgba(76, 175, 80, ' + alpha + ')';
+              ctx.lineWidth = 3;
+              ctx.beginPath();
+              ctx.moveTo(0, vy);
+              ctx.quadraticCurveTo(progress * CANVAS_W * 0.3, vy + Math.sin(v) * 30, progress * CANVAS_W * 0.5, vy);
+              ctx.stroke();
+              ctx.beginPath();
+              ctx.moveTo(CANVAS_W, vy);
+              ctx.quadraticCurveTo(CANVAS_W - progress * CANVAS_W * 0.3, vy + Math.cos(v) * 30, CANVAS_W - progress * CANVAS_W * 0.5, vy);
+              ctx.stroke();
+            }
+            break;
+          }
+          case 'healWave': {
+            // Pink tint + floating hearts
+            ctx.fillStyle = 'rgba(233, 30, 99, ' + (alpha * 0.2) + ')';
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+            ctx.font = '16px serif';
+            ctx.textAlign = 'center';
+            for (let h = 0; h < 8; h++) {
+              const hx = (h / 8) * CANVAS_W + 50;
+              const hy = CANVAS_H - progress * CANVAS_H * 0.8 + Math.sin(h * 2) * 30;
+              ctx.fillStyle = 'rgba(255, 105, 180, ' + alpha + ')';
+              ctx.fillText('\u2665', hx, hy);
+            }
+            break;
+          }
+          case 'shadowCloak': {
+            // Dark purple flash around player
+            ctx.fillStyle = 'rgba(94, 53, 177, ' + (alpha * 0.4) + ')';
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, 40 + progress * 20, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+          }
+          case 'supernova': {
+            // Golden expanding circle from center
+            ctx.strokeStyle = 'rgba(255, 193, 7, ' + alpha + ')';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(CANVAS_W / 2, CANVAS_H / 2, progress * Math.max(CANVAS_W, CANVAS_H) * 0.6, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(255, 215, 0, ' + (alpha * 0.15) + ')';
+            ctx.beginPath();
+            ctx.arc(CANVAS_W / 2, CANVAS_H / 2, progress * Math.max(CANVAS_W, CANVAS_H) * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+          }
+          case 'rainbowWave': {
+            // Rainbow-colored dots spiraling outward
+            for (let r = 0; r < 12; r++) {
+              const angle = (r / 12) * Math.PI * 2 + state.time * 3;
+              const dist = progress * 200;
+              const rx = CANVAS_W / 2 + Math.cos(angle) * dist;
+              const ry = CANVAS_H / 2 + Math.sin(angle) * dist;
+              const hue = (r * 30 + state.time * 100) % 360;
+              ctx.fillStyle = 'hsla(' + hue + ', 90%, 60%, ' + alpha + ')';
+              ctx.beginPath();
+              ctx.arc(rx, ry, 5, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    function drawBattleHUD() {
+      // Wave text - top center
+      ctx.font = 'bold 18px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FFD700';
+      ctx.fillText('Wave ' + state.battle.wave, CANVAS_W / 2, 28);
+
+      // Wave state messages
+      if (state.battle.waveState === 'clearing') {
+        ctx.font = 'bold 22px monospace';
+        ctx.fillStyle = '#4CAF50';
+        ctx.fillText('Wave Cleared!', CANVAS_W / 2, CANVAS_H / 2 - 20);
+        // Sparkles
+        for (let s = 0; s < 6; s++) {
+          const angle = (s / 6) * Math.PI * 2 + state.time * 2;
+          const sx = CANVAS_W / 2 + Math.cos(angle) * 60;
+          const sy = CANVAS_H / 2 - 20 + Math.sin(angle) * 20;
+          const hue = (s * 60 + state.time * 120) % 360;
+          ctx.fillStyle = 'hsl(' + hue + ', 80%, 70%)';
+          ctx.font = '12px serif';
+          ctx.fillText('\u2728', sx, sy);
+        }
+      } else if (state.battle.waveState === 'waiting' && state.battle.wave > 0) {
+        ctx.font = '16px monospace';
+        ctx.fillStyle = '#aaa';
+        ctx.fillText('Next wave...', CANVAS_W / 2, CANVAS_H / 2 - 20);
+      }
+
+      // Per-player HUD
+      for (let i = 0; i < state.activePlayerCount; i++) {
+        const pi = state.activePlayerCount === 1 ? state.activePlayer : i;
+        const b = state.battle.battlePlayers[i];
+        const dragonKey = state.battle.playerDragons[i];
+        if (!dragonKey) continue;
+        const cfg = DRAGON_CONFIGS[dragonKey];
+        const pName = players[pi].name;
+
+        const isLeft = (i === 0);
+        const baseX = isLeft ? 10 : CANVAS_W - 10;
+        const align = isLeft ? 'left' : 'right';
+        const hudY = 10;
+
+        // Player name + dragon name
+        ctx.textAlign = align;
+        ctx.font = 'bold 13px monospace';
+        ctx.fillStyle = cfg.color;
+        ctx.fillText(pName + ' - ' + cfg.name, baseX, hudY + 12);
+
+        // Hearts
+        const heartY = hudY + 28;
+        ctx.font = '14px serif';
+        for (let h = 0; h < MAX_HEARTS; h++) {
+          const hx = isLeft ? baseX + h * 18 : baseX - h * 18;
+          if (h < b.hearts) {
+            // Filled heart - red flash when low
+            if (b.hearts <= 2 && Math.floor(state.time * 4) % 2 === 0) {
+              ctx.fillStyle = '#FF1744';
+            } else {
+              ctx.fillStyle = '#FF5252';
+            }
+            ctx.fillText('\u2665', hx, heartY);
+          } else {
+            ctx.fillStyle = '#555';
+            ctx.fillText('\u2661', hx, heartY);
+          }
+        }
+
+        // Super meter bar
+        const barY = heartY + 14;
+        const barW = 100;
+        const barH = 10;
+        const barX = isLeft ? baseX : baseX - barW;
+        const meterFrac = b.superMeter / SUPER_METER_MAX;
+
+        // Bar background
+        ctx.fillStyle = '#222';
+        ctx.fillRect(barX, barY, barW, barH);
+
+        // Bar fill
+        if (meterFrac >= 1) {
+          // Rainbow cycling when full
+          const hue = (state.time * 120) % 360;
+          ctx.fillStyle = 'hsl(' + hue + ', 80%, 60%)';
+        } else {
+          ctx.fillStyle = cfg.color;
+        }
+        ctx.fillRect(barX, barY, barW * meterFrac, barH);
+
+        // Bar border
+        ctx.strokeStyle = '#666';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX, barY, barW, barH);
+
+        // SUPER READY text
+        if (meterFrac >= 1) {
+          ctx.font = 'bold 10px monospace';
+          ctx.fillStyle = '#FFD700';
+          ctx.textAlign = isLeft ? 'left' : 'right';
+          ctx.fillText('SUPER READY!', isLeft ? barX : barX + barW, barY + barH + 12);
+        }
+      }
+    }
+
+    // ============================================================
     // GAME LOOP
     // ============================================================
     let lastTime = 0;
@@ -3411,12 +3751,17 @@
           updateEnemies(dt);
           checkBattleCollisions();
           updateBattleWaves(dt);
+          updateBattleEffects(dt);
+          updateDrops(dt);
         }
 
         drawBattleBackground();
         drawBattleEnemies();
         drawBattleShots();
         drawBattlePlayers();
+        drawDrops();
+        drawBattleEffects();
+        drawBattleHUD();
       }
 
       requestAnimationFrame(loop);
