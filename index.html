@@ -135,6 +135,11 @@
       heart:  { map: ZONE_HEART_FOREST,  name: 'Heart Forest',  eggs: ['love'] },
     };
 
+    const ZONE_CONNECTIONS = [
+      { from: 'meadow', edge: 'bottom', to: 'heart', unlockRequired: true },
+      { from: 'heart', edge: 'top', to: 'meadow', unlockRequired: false },
+    ];
+
     // ============================================================
     // SPRITE DATA
     // ============================================================
@@ -297,6 +302,23 @@
       }
     }
 
+    function drawEggs() {
+      for (const egg of state.eggs) {
+        const bob = Math.sin(state.time * 2 + egg.bobOffset) * 3;
+        const px = egg.x * TILE + 4;
+        const py = (egg.y + UI_ROWS) * TILE + bob;
+
+        // Glow effect
+        const glowAlpha = 0.3 + Math.sin(state.time * 3 + egg.bobOffset) * 0.15;
+        ctx.fillStyle = `rgba(255, 255, 200, ${glowAlpha})`;
+        ctx.beginPath();
+        ctx.arc(egg.x * TILE + TILE / 2, (egg.y + UI_ROWS) * TILE + TILE / 2 + bob, TILE / 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        drawSprite(EGG_SPRITES[egg.type], px, py, TILE * 0.75);
+      }
+    }
+
     // ============================================================
     // GAME STATE
     // ============================================================
@@ -326,7 +348,7 @@
     ];
 
     state.currentZone = 'meadow';
-    state.unlockedZones = ['meadow'];
+    state.unlockedZones = ['meadow', 'heart'];
     state.collection = {};
     state.dragons = [];
     state.eggs = [];
@@ -336,6 +358,157 @@
     // GAME LOGIC
     // ============================================================
     const MOVE_DELAY = 0.12;
+
+    function spawnEggsForZone(zoneKey) {
+      state.eggs = [];
+      const zone = ZONES[zoneKey];
+      const eggTypes = zone.eggs;
+
+      const candidates = [];
+      for (let r = 2; r < MAP_ROWS - 2; r++) {
+        for (let c = 2; c < COLS - 2; c++) {
+          const tile = zone.map[r][c];
+          if (tile === 'grass' || tile === 'grass2') {
+            candidates.push({ x: c, y: r });
+          }
+        }
+      }
+
+      // Shuffle
+      for (let i = candidates.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+      }
+
+      const count = state.mode === 'freeplay' ? 8 : 5;
+      for (let i = 0; i < Math.min(count, candidates.length); i++) {
+        const type = eggTypes[Math.floor(Math.random() * eggTypes.length)];
+        state.eggs.push({
+          type: type,
+          x: candidates[i].x,
+          y: candidates[i].y,
+          bobOffset: Math.random() * Math.PI * 2,
+        });
+      }
+    }
+
+    function checkZoneTransition() {
+      for (const conn of ZONE_CONNECTIONS) {
+        if (state.currentZone !== conn.from) continue;
+        if (conn.unlockRequired && !state.unlockedZones.includes(conn.to)) continue;
+
+        for (const p of players) {
+          const atEdge =
+            (conn.edge === 'bottom' && p.y >= MAP_ROWS - 1) ||
+            (conn.edge === 'top' && p.y <= 0);
+
+          if (atEdge) {
+            const tile = ZONES[conn.from].map[p.y][p.x];
+            if (tile === 'path') {
+              transitionToZone(conn.to, conn.edge);
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    function transitionToZone(zoneKey, fromEdge) {
+      state.currentZone = zoneKey;
+      for (const p of players) {
+        if (fromEdge === 'bottom') {
+          p.y = 1;
+        } else {
+          p.y = MAP_ROWS - 2;
+        }
+      }
+      spawnEggsForZone(zoneKey);
+    }
+
+    function checkEggCollection() {
+      for (let i = state.eggs.length - 1; i >= 0; i--) {
+        const egg = state.eggs[i];
+        for (const p of players) {
+          if (p.x === egg.x && p.y === egg.y) {
+            state.hatching.push({
+              type: egg.type,
+              x: egg.x,
+              y: egg.y,
+              timer: 0,
+              phase: 'wobble',
+            });
+            state.eggs.splice(i, 1);
+            break;
+          }
+        }
+      }
+    }
+
+    function updateHatching(dt) {
+      for (let i = state.hatching.length - 1; i >= 0; i--) {
+        const h = state.hatching[i];
+        h.timer += dt;
+
+        if (h.phase === 'wobble' && h.timer > 0.5) {
+          h.phase = 'crack';
+          h.timer = 0;
+        } else if (h.phase === 'crack' && h.timer > 0.4) {
+          h.phase = 'hatch';
+          h.timer = 0;
+        } else if (h.phase === 'hatch' && h.timer > 0.6) {
+          state.collection[h.type] = (state.collection[h.type] || 0) + 1;
+
+          const followPlayer = state.dragons.length % 2;
+          state.dragons.push({
+            type: h.type,
+            followPlayer: followPlayer,
+            x: players[followPlayer].x,
+            y: players[followPlayer].y,
+          });
+
+          state.hatching.splice(i, 1);
+
+          // Respawn in freeplay
+          if (state.mode === 'freeplay' && state.eggs.length < 3) {
+            spawnEggsForZone(state.currentZone);
+          }
+        }
+      }
+    }
+
+    function drawHatching() {
+      for (const h of state.hatching) {
+        const px = h.x * TILE;
+        const py = (h.y + UI_ROWS) * TILE;
+
+        if (h.phase === 'wobble') {
+          const wobble = Math.sin(h.timer * 20) * 3;
+          drawSprite(EGG_SPRITES[h.type], px + 4 + wobble, py, TILE * 0.75);
+        } else if (h.phase === 'crack') {
+          drawSprite(EGG_SPRITES[h.type], px + 4, py, TILE * 0.75);
+          ctx.strokeStyle = '#333';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(px + TILE / 2, py + 4);
+          ctx.lineTo(px + TILE / 2 + 4, py + TILE / 2);
+          ctx.lineTo(px + TILE / 2 - 2, py + TILE - 4);
+          ctx.stroke();
+        } else if (h.phase === 'hatch') {
+          const sparkleCount = 6;
+          for (let s = 0; s < sparkleCount; s++) {
+            const angle = (s / sparkleCount) * Math.PI * 2 + h.timer * 5;
+            const dist = h.timer * 30;
+            const sx = px + TILE / 2 + Math.cos(angle) * dist;
+            const sy = py + TILE / 2 + Math.sin(angle) * dist;
+            const alpha = 1 - h.timer / 0.6;
+            ctx.fillStyle = `rgba(255, 255, 100, ${alpha})`;
+            ctx.fillRect(sx - 2, sy - 2, 4, 4);
+          }
+          const scale = h.timer / 0.6;
+          drawSprite(DRAGON_SPRITES[h.type], px + 6, py + 4, TILE * 0.6 * scale);
+        }
+      }
+    }
 
     function isSolid(zoneKey, col, row) {
       const zone = ZONES[zoneKey];
@@ -398,6 +571,9 @@
       // Update
       if (state.screen === 'playing') {
         updatePlayers(dt);
+        checkZoneTransition();
+        checkEggCollection();
+        updateHatching(dt);
       }
 
       // Clear screen
@@ -408,6 +584,8 @@
       if (state.screen === 'playing') {
         drawZone(ZONES[state.currentZone]);
         drawPlayers();
+        drawEggs();
+        drawHatching();
       } else {
         // Placeholder title text
         ctx.fillStyle = '#FFD700';
@@ -420,6 +598,7 @@
       requestAnimationFrame(loop);
     }
 
+    spawnEggsForZone('meadow');
     requestAnimationFrame(loop);
   </script>
 </body>
