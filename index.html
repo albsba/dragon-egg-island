@@ -2446,16 +2446,36 @@
     };
 
     const WAVE_DEFS = [
-      { enemies: ['shadowPuff','shadowPuff','shadowPuff'] },
-      { enemies: ['shadowPuff','corruptedEgg','shadowPuff','corruptedEgg'] },
-      { enemies: ['darkButterfly','darkButterfly','shadowPuff','corruptedEgg'] },
-      { enemies: ['shadowPuff','darkButterfly','corruptedEgg','darkButterfly','shadowPuff'] },
-      { enemies: ['elderDragon'] },
-      { enemies: ['shadowSlime','shadowSlime','shadowPuff','shadowPuff','darkButterfly'] },
-      { enemies: ['corruptedDragon','corruptedDragon','shadowSlime','shadowPuff'] },
-      { enemies: ['darkMushroom','darkMushroom','shadowSlime','corruptedDragon'] },
-      { enemies: ['shadowSlime','corruptedDragon','darkMushroom','shadowSlime','darkButterfly','darkButterfly'] },
-      { enemies: ['elderDragon'] },
+      // Wave 1: gentle intro
+      { enemies: ['shadowPuff','shadowPuff','shadowPuff'], pattern: 'row' },
+      // Wave 2: a few more
+      { enemies: ['shadowPuff','corruptedEgg','shadowPuff','corruptedEgg','shadowPuff'], pattern: 'row' },
+      // Wave 3: butterflies zigzag in
+      { enemies: ['darkButterfly','darkButterfly','darkButterfly','darkButterfly'], pattern: 'vshape' },
+      // Wave 4: first mix
+      { enemies: ['shadowPuff','darkButterfly','corruptedEgg','darkButterfly','shadowPuff','corruptedEgg'], pattern: 'diagonal' },
+      // Wave 5: BOSS
+      { enemies: ['elderDragon'], pattern: 'boss' },
+      // Wave 6: slimes bounce in
+      { enemies: ['shadowSlime','shadowSlime','shadowSlime','shadowPuff','shadowPuff','darkButterfly','darkButterfly'], pattern: 'vshape' },
+      // Wave 7: rush wave! lots of easy enemies fast
+      { enemies: ['shadowPuff','shadowPuff','shadowPuff','shadowPuff','shadowPuff','shadowPuff','shadowPuff','shadowPuff','corruptedEgg','corruptedEgg'], pattern: 'rush', rush: true },
+      // Wave 8: dragons swoop
+      { enemies: ['corruptedDragon','corruptedDragon','corruptedDragon','shadowSlime','shadowSlime'], pattern: 'diagonal' },
+      // Wave 9: mushroom madness
+      { enemies: ['darkMushroom','darkMushroom','darkMushroom','darkMushroom','shadowSlime','corruptedDragon'], pattern: 'circle' },
+      // Wave 10: BOSS (harder)
+      { enemies: ['elderDragon'], pattern: 'boss' },
+      // Wave 11: knights appear
+      { enemies: ['shadowKnight','shadowKnight','shadowSlime','shadowSlime','corruptedDragon','corruptedDragon','darkButterfly','darkButterfly'], pattern: 'vshape' },
+      // Wave 12: rush wave 2
+      { enemies: ['darkButterfly','darkButterfly','darkButterfly','darkButterfly','darkButterfly','darkButterfly','darkButterfly','darkButterfly','darkButterfly','darkButterfly'], pattern: 'rush', rush: true },
+      // Wave 13: storm clouds
+      { enemies: ['stormCloud','stormCloud','shadowKnight','shadowKnight','shadowSlime','shadowSlime'], pattern: 'row' },
+      // Wave 14: everything
+      { enemies: ['shadowPuff','darkButterfly','shadowSlime','corruptedDragon','darkMushroom','shadowKnight','stormCloud'], pattern: 'circle' },
+      // Wave 15: BOSS
+      { enemies: ['elderDragon'], pattern: 'boss' },
     ];
 
     const BATTLE_PLAYER_SPEED = 200;
@@ -2526,6 +2546,23 @@
     };
     let guestSuperPressed = false;
     let battleDragHintTimer = 3;
+    let screenShake = { x: 0, y: 0, timer: 0, intensity: 0 };
+
+    function triggerScreenShake(intensity, duration) {
+      screenShake.intensity = intensity;
+      screenShake.timer = duration;
+    }
+
+    function updateScreenShake(dt) {
+      if (screenShake.timer > 0) {
+        screenShake.timer -= dt;
+        screenShake.x = (Math.random() - 0.5) * screenShake.intensity * 2;
+        screenShake.y = (Math.random() - 0.5) * screenShake.intensity * 2;
+      } else {
+        screenShake.x = 0;
+        screenShake.y = 0;
+      }
+    }
 
     document.addEventListener('touchstart', function(e) {
       if (state.screen !== 'battle') return;
@@ -3089,37 +3126,83 @@
     function startNextWave() {
       state.battle.wave++;
       state.battle.waveState = 'active';
-      const wave = state.battle.wave;
-      let enemyList;
+      state.battle.waveTimer = 0;
+      state.battle.hitStreak = [0, 0];
 
-      if (wave <= WAVE_DEFS.length) {
-        enemyList = WAVE_DEFS[wave - 1].enemies;
+      const waveNum = state.battle.wave;
+      let waveDef;
+
+      if (waveNum <= WAVE_DEFS.length) {
+        waveDef = WAVE_DEFS[waveNum - 1];
       } else {
-        enemyList = generateWave(wave);
+        waveDef = generateWave(waveNum);
       }
 
-      const speedMult = Math.pow(1.03, wave - 1);
-      const spacing = CANVAS_W / (enemyList.length + 1);
+      const enemiesToSpawn = waveDef.enemies;
+      const pattern = waveDef.pattern || 'row';
+      const isRush = waveDef.rush || false;
 
-      for (let i = 0; i < enemyList.length; i++) {
-        const typeName = enemyList[i];
-        const et = ENEMY_TYPES[typeName];
+      for (let i = 0; i < enemiesToSpawn.length; i++) {
+        const typeName = enemiesToSpawn[i];
+        const typeConfig = ENEMY_TYPES[typeName];
+
+        let startX, startY;
+        const spacing = CANVAS_W / (enemiesToSpawn.length + 1);
+
+        switch (pattern) {
+          case 'row':
+            startX = spacing * (i + 1);
+            startY = -typeConfig.size - (i * 15);
+            break;
+          case 'vshape': {
+            startX = spacing * (i + 1);
+            const mid = (enemiesToSpawn.length - 1) / 2;
+            startY = -typeConfig.size - Math.abs(i - mid) * 30;
+            break;
+          }
+          case 'diagonal':
+            startX = 60 + (i / enemiesToSpawn.length) * (CANVAS_W - 120);
+            startY = -typeConfig.size - (i * 35);
+            break;
+          case 'circle': {
+            const angle = (i / enemiesToSpawn.length) * Math.PI;
+            startX = CANVAS_W / 2 + Math.cos(angle) * 200;
+            startY = -typeConfig.size - Math.sin(angle) * 80 - (i * 10);
+            break;
+          }
+          case 'rush':
+            startX = 40 + Math.random() * (CANVAS_W - 80);
+            startY = -typeConfig.size - Math.random() * 200;
+            break;
+          case 'boss':
+            startX = CANVAS_W / 2;
+            startY = -typeConfig.size;
+            break;
+          default:
+            startX = spacing * (i + 1);
+            startY = -typeConfig.size - (i * 15);
+        }
+
+        // Speed scaling: 5% per wave (up from 3%), rush waves get extra 20%
+        const speedMult = (1 + (waveNum - 1) * 0.05) * (isRush ? 1.2 : 1);
+
         state.battle.enemies.push({
           type: typeName,
-          x: spacing * (i + 1),
-          y: -et.size - (i * 30),
-          hp: et.hp,
-          maxHp: et.hp,
-          speed: et.speed * speedMult,
-          size: et.size,
-          pattern: et.pattern,
-          color: et.color,
-          shoots: et.shoots || false,
-          splits: et.splits || false,
-          shootTimer: 3,
-          spawnTime: state.time,
+          x: startX,
+          y: startY,
+          hp: typeConfig.hp,
+          maxHp: typeConfig.hp,
+          speed: typeConfig.speed * speedMult,
+          size: typeConfig.size,
+          color: typeConfig.color,
+          pattern: typeConfig.pattern,
+          timer: Math.random() * Math.PI * 2,
           curing: false,
           cureTimer: 0,
+          shoots: typeConfig.shoots || false,
+          splits: typeConfig.splits || false,
+          shootTimer: typeConfig.shoots ? (2 + Math.random()) : 0,
+          spawnTime: state.time,
           frozen: 0,
           vined: 0,
         });
@@ -3127,21 +3210,26 @@
     }
 
     function generateWave(waveNum) {
-      const isBoss = waveNum % 5 === 0;
-      if (isBoss) return ['elderDragon'];
-
-      const hardTypes = ['shadowSlime', 'corruptedDragon', 'shadowKnight', 'stormCloud'];
-      const medTypes = ['darkButterfly', 'darkMushroom', 'corruptedEgg'];
-      const count = Math.min(12, 4 + Math.floor(waveNum / 3));
-      const list = [];
-      for (let i = 0; i < count; i++) {
-        if (Math.random() < 0.4) {
-          list.push(hardTypes[Math.floor(Math.random() * hardTypes.length)]);
-        } else {
-          list.push(medTypes[Math.floor(Math.random() * medTypes.length)]);
-        }
+      if (waveNum % 5 === 0) {
+        return { enemies: ['elderDragon'], pattern: 'boss' };
       }
-      return list;
+
+      const isRush = (waveNum % 3 === 1);
+      const count = isRush ? Math.min(12 + Math.floor(waveNum / 3), 18) : Math.min(7 + Math.floor(waveNum / 2), 15);
+
+      const enemies = [];
+      const pool = isRush
+        ? ['shadowPuff', 'corruptedEgg', 'darkButterfly']
+        : ['shadowSlime', 'corruptedDragon', 'darkMushroom', 'shadowKnight', 'stormCloud'];
+
+      for (let i = 0; i < count; i++) {
+        enemies.push(pool[Math.floor(Math.random() * pool.length)]);
+      }
+
+      const patterns = ['row', 'vshape', 'diagonal', 'circle'];
+      const pattern = isRush ? 'rush' : patterns[Math.floor(Math.random() * patterns.length)];
+
+      return { enemies, pattern, rush: isRush };
     }
 
     function updateEnemies(dt) {
@@ -3161,6 +3249,23 @@
             const meterGain = 5;
             for (let p = 0; p < state.activePlayerCount; p++) {
               state.battle.battlePlayers[p].superMeter = Math.min(SUPER_METER_MAX, state.battle.battlePlayers[p].superMeter + meterGain);
+            }
+            if (e.type === 'elderDragon') {
+              // Power-up rain after boss!
+              triggerScreenShake(8, 0.5);
+              for (let d = 0; d < 7; d++) {
+                const dropTypes = Object.keys(DROP_TYPES);
+                const randomType = dropTypes[Math.floor(Math.random() * dropTypes.length)];
+                const dropConfig = DROP_TYPES[randomType];
+                state.battle.drops.push({
+                  type: randomType,
+                  x: 80 + Math.random() * (CANVAS_W - 160),
+                  y: -20 - Math.random() * 100,
+                  vy: 40,
+                  color: dropConfig.color,
+                  symbol: dropConfig.symbol,
+                });
+              }
             }
             enemies.splice(i, 1);
           }
@@ -3337,6 +3442,7 @@
       b.invTimer = 1;
       state.battle.hitStreak[playerIdx]++;
       state.battle.effects.push({ x: b.x, y: BATTLE_PLAYER_Y, type: 'playerHit', timer: 0.4, maxTimer: 0.4 });
+      triggerScreenShake(3, 0.15);
       if (b.hearts <= 0) {
         b.alive = false;
         b.respawnTimer = RESPAWN_TIME;
@@ -3890,9 +3996,24 @@
           ctx.fillText('\u2728', sx, sy);
         }
       } else if (state.battle.waveState === 'waiting' && state.battle.wave > 0) {
-        ctx.font = '16px monospace';
-        ctx.fillStyle = '#aaa';
-        ctx.fillText('Next wave...', CANVAS_W / 2, CANVAS_H / 2 - 20);
+        const nextWave = state.battle.wave + 1;
+        const isBoss = nextWave % 5 === 0;
+        const isRush = nextWave <= WAVE_DEFS.length ? (WAVE_DEFS[nextWave-1] && WAVE_DEFS[nextWave-1].rush) : (nextWave % 3 === 1);
+
+        ctx.textAlign = 'center';
+        if (isBoss) {
+          ctx.fillStyle = '#FF5252';
+          ctx.font = 'bold 20px monospace';
+          ctx.fillText('BOSS INCOMING!', CANVAS_W / 2, CANVAS_H / 2);
+        } else if (isRush) {
+          ctx.fillStyle = '#FFD700';
+          ctx.font = 'bold 18px monospace';
+          ctx.fillText('RUSH WAVE!', CANVAS_W / 2, CANVAS_H / 2);
+        } else {
+          ctx.fillStyle = '#aaa';
+          ctx.font = '14px monospace';
+          ctx.fillText('Next wave...', CANVAS_W / 2, CANVAS_H / 2);
+        }
       }
 
       // Per-player HUD
@@ -3981,6 +4102,7 @@
       if (!dragonKey) return;
 
       b.superMeter = 0;
+      triggerScreenShake(5, 0.3);
       const enemies = state.battle.enemies;
 
       switch (dragonKey) {
@@ -4247,14 +4369,18 @@
           updateDrops(dt);
           updateSuperActive(dt);
         }
+        updateScreenShake(dt);
         updateSuperButtons();
 
         drawBattleBackground();
+        ctx.save();
+        ctx.translate(screenShake.x, screenShake.y);
         drawBattleEnemies();
         drawBattleShots();
         drawBattlePlayers();
         drawDrops();
         drawBattleEffects();
+        ctx.restore();
         drawBattleHUD();
 
         // Show drag hint on first wave
