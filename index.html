@@ -1222,6 +1222,7 @@
       superActive: [null, null],
       combo: { count: 0, timer: 0, displayTimer: 0 },
       friendBeam: 0,
+      bonusEnemyCooldown: 0,
     };
     state.dragonSelectPlayer = 0;
     state.dragonSelectIndex = 0;
@@ -2495,14 +2496,14 @@
       superBoost:   { color: '#FFD700', chance: 0.10, symbol: '\u2605' },
       speedStar:    { color: '#00E5FF', chance: 0.06, symbol: '\u2736' },
       shield:       { color: '#69F0AE', chance: 0.06, symbol: '\u25CE' },
-      tripleShot:   { color: '#FF9800', chance: 0.06, symbol: '\u22EE' },
-      giantShot:    { color: '#E040FB', chance: 0.05, symbol: '\u25CF' },
-      rapidFire:    { color: '#00E676', chance: 0.06, symbol: '\u26A1' },
+      tripleShot:   { color: '#FF9800', chance: 0.04, symbol: '\u22EE' },
+      giantShot:    { color: '#E040FB', chance: 0.03, symbol: '\u25CF' },
+      rapidFire:    { color: '#00E676', chance: 0.04, symbol: '\u26A1' },
       magnet:       { color: '#FFEB3B', chance: 0.05, symbol: '\u2295' },
-      timeSlow:     { color: '#81D4FA', chance: 0.04, symbol: '\u25F7' },
+      timeSlow:     { color: '#81D4FA', chance: 0.03, symbol: '\u25F7' },
       starShield:   { color: '#FFD700', chance: 0.04, symbol: '\u2606' },
       giantDragon:  { color: '#FF5722', chance: 0.04, symbol: '\u25B2' },
-      clone:        { color: '#CE93D8', chance: 0.04, symbol: '\u229E' },
+      clone:        { color: '#CE93D8', chance: 0.03, symbol: '\u229E' },
       rainbowTrail: { color: '#FF6B6B', chance: 0.04, symbol: '~' },
       friendBeam:   { color: '#F48FB1', chance: 0.03, symbol: '\u221E' },
     };
@@ -2984,6 +2985,7 @@
       state.battle.superActive = [null, null];
 
       state.battle.friendBeam = 0;
+      state.battle.bonusEnemyCooldown = 0;
       for (let i = 0; i < 2; i++) {
         state.battle.battlePlayers[i].hearts = MAX_HEARTS;
         state.battle.battlePlayers[i].superMeter = 0;
@@ -3029,6 +3031,9 @@
 
     function updateBattlePlayers(dt) {
       const bp = state.battle.battlePlayers;
+
+      // Decrement bonus enemy cooldown
+      if (state.battle.bonusEnemyCooldown > 0) state.battle.bonusEnemyCooldown -= dt;
 
       // Check if host should consume guest super press
       if (state.isHost && remoteGuestInput.superPressed) {
@@ -3130,6 +3135,7 @@
     }
 
     function spawnShots(playerId, x, y, config, isGiant) {
+      if (state.battle.shots.length >= 50) return;
       const shots = state.battle.shots;
       const spd = config.shotSpeed;
       const col = config.color;
@@ -3369,8 +3375,10 @@
             state.battle.combo.count++;
             state.battle.combo.timer = 2.0;
             state.battle.combo.displayTimer = 1.5;
-            // Spawn drop
-            spawnDrop(e.x, e.y);
+            // Spawn drop (bonus enemies never drop power-ups)
+            if (!e.bonusEnemy) {
+              spawnDrop(e.x, e.y);
+            }
             // Add cure effect
             state.battle.effects.push({ x: e.x, y: e.y, type: 'cure', timer: 0.6, maxTimer: 0.6 });
             // Add super meter to all players
@@ -4344,6 +4352,7 @@
     // ============================================================
 
     function spawnDrop(x, y) {
+      if (state.battle.drops.length >= 10) return;
       const roll = Math.random();
       let cumulative = 0;
       // If any player has hitStreak >= 3, boost heart chance (secret easy mode)
@@ -4419,6 +4428,8 @@
     const POWER_TYPES = ['tripleShot', 'giantShot', 'rapidFire', 'clone', 'timeSlow', 'friendBeam'];
 
     function spawnBonusEnemies(count) {
+      if (state.battle.enemies.length >= 20) return; // cap
+      count = Math.min(count, 20 - state.battle.enemies.length);
       const types = ['shadowPuff', 'darkButterfly', 'corruptedEgg'];
       const speedMult = 1 + state.battle.wave * 0.05;
       for (let i = 0; i < count; i++) {
@@ -4436,6 +4447,7 @@
           shoots: false, splits: false, shootTimer: 0,
           spawnTime: state.time,
           frozen: 0, vined: 0,
+          bonusEnemy: true,
         });
       }
     }
@@ -4467,9 +4479,10 @@
         case 'friendBeam':   state.battle.friendBeam = 10; break;
       }
 
-      // Dynamic enemy compensation for power types
-      if (POWER_TYPES.includes(type)) {
+      // Dynamic enemy compensation for power types (gated by cooldown)
+      if (POWER_TYPES.includes(type) && state.battle.bonusEnemyCooldown <= 0) {
         spawnBonusEnemies(3);
+        state.battle.bonusEnemyCooldown = 5;
       }
 
       // Collect effect
@@ -5130,11 +5143,12 @@
         // Shadow/outline
         ctx.font = 'bold ' + Math.floor(28 * scale) + 'px monospace';
         ctx.fillStyle = '#000';
-        ctx.fillText('x' + combo.count + ' COMBO!', CANVAS_W / 2 + 2, comboY + 2);
+        const comboDisplay = Math.min(combo.count, 99);
+        ctx.fillText('x' + comboDisplay + ' COMBO!', CANVAS_W / 2 + 2, comboY + 2);
         // Main text color cycles with combo size
         const comboHue = (combo.count * 25) % 360;
         ctx.fillStyle = 'hsl(' + comboHue + ', 100%, 65%)';
-        ctx.fillText('x' + combo.count + ' COMBO!', CANVAS_W / 2, comboY);
+        ctx.fillText('x' + comboDisplay + ' COMBO!', CANVAS_W / 2, comboY);
         // Extra sparkles around combo text for big combos
         if (combo.count >= 5) {
           ctx.font = '14px serif';
