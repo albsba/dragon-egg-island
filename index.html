@@ -279,6 +279,42 @@
     .connection-dot.green { background: #4CAF50; }
     .connection-dot.yellow { background: #FFC107; }
     .connection-dot.red { background: #e74c3c; }
+
+    .super-btn {
+      position: fixed;
+      bottom: 200px;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      z-index: 20;
+      border: 3px solid #FFD700;
+      background: rgba(255, 215, 0, 0.2);
+      color: #FFD700;
+      font-family: monospace;
+      font-weight: bold;
+      font-size: 13px;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      opacity: 0.5;
+    }
+
+    #super-btn-left { left: 30px; }
+    #super-btn-right { right: 30px; }
+
+    .super-btn.ready {
+      opacity: 1;
+      background: rgba(255, 215, 0, 0.4);
+      animation: superPulse 1s ease-in-out infinite;
+    }
+
+    @keyframes superPulse {
+      0%   { transform: scale(1);   box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
+      50%  { transform: scale(1.1); box-shadow: 0 0 25px rgba(255, 215, 0, 0.6); }
+      100% { transform: scale(1);   box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
+    }
   </style>
 </head>
 <body>
@@ -326,6 +362,10 @@
   <div id="room-code-overlay">
     <!-- Content is set dynamically by JS -->
   </div>
+
+  <!-- Super buttons -->
+  <button id="super-btn-left" class="super-btn" style="display:none;">SUPER!</button>
+  <button id="super-btn-right" class="super-btn" style="display:none;">SUPER!</button>
 
   <!-- Dragon select touch controls -->
   <div id="dragon-select-touch" style="display:none; position: fixed; bottom: 30px; left: 0; right: 0; z-index: 20; text-align: center;">
@@ -3674,6 +3714,153 @@
     }
 
     // ============================================================
+    // SUPER MOVES
+    // ============================================================
+
+    function activateSuper(playerIdx) {
+      const b = state.battle.battlePlayers[playerIdx];
+      if (!b || !b.alive || b.superMeter < SUPER_METER_MAX) return;
+      const dragonKey = state.battle.playerDragons[playerIdx];
+      if (!dragonKey) return;
+
+      b.superMeter = 0;
+      const enemies = state.battle.enemies;
+
+      switch (dragonKey) {
+        case 'fire': {
+          // Flame Wave: deal 3 damage to all enemies, cure those at 0hp
+          for (const e of enemies) {
+            if (e.curing) continue;
+            e.hp -= 3;
+            if (e.hp <= 0) { e.curing = true; e.cureTimer = 0; }
+          }
+          state.battle.effects.push({ x: 0, y: 0, type: 'flameWave', timer: 1.0, maxTimer: 1.0 });
+          break;
+        }
+        case 'ice': {
+          // Freeze Blast: freeze all enemies for 3 seconds
+          state.battle.superActive[playerIdx] = { type: 'freeze', timer: 3 };
+          for (const e of enemies) { if (!e.curing) e.frozen = 3; }
+          state.battle.effects.push({ x: 0, y: 0, type: 'freezeBlast', timer: 1.2, maxTimer: 1.2 });
+          break;
+        }
+        case 'nature': {
+          // Vine Burst: deal 2 damage to all, vine enemies
+          for (const e of enemies) {
+            if (e.curing) continue;
+            e.hp -= 2;
+            e.vined = 2;
+            if (e.hp <= 0) { e.curing = true; e.cureTimer = 0; }
+          }
+          state.battle.superActive[playerIdx] = { type: 'vines', timer: 2 };
+          state.battle.effects.push({ x: 0, y: 0, type: 'vineBurst', timer: 1.0, maxTimer: 1.0 });
+          break;
+        }
+        case 'love': {
+          // Heal Wave: full hearts for ALL players, cure all enemies
+          for (let p = 0; p < state.activePlayerCount; p++) {
+            state.battle.battlePlayers[p].hearts = MAX_HEARTS;
+          }
+          for (const e of enemies) {
+            if (!e.curing) { e.curing = true; e.cureTimer = 0; }
+          }
+          state.battle.effects.push({ x: 0, y: 0, type: 'healWave', timer: 1.5, maxTimer: 1.5 });
+          break;
+        }
+        case 'shadow': {
+          // Shadow Cloak: invincible for 5 seconds
+          b.invTimer = 5;
+          state.battle.effects.push({ x: b.x, y: BATTLE_PLAYER_Y, type: 'shadowCloak', timer: 1.0, maxTimer: 1.0 });
+          break;
+        }
+        case 'star': {
+          // Supernova: cure all enemies instantly
+          for (const e of enemies) {
+            if (!e.curing) { e.curing = true; e.cureTimer = 0; }
+          }
+          state.battle.effects.push({ x: 0, y: 0, type: 'supernova', timer: 1.5, maxTimer: 1.5 });
+          break;
+        }
+        case 'rainbow': {
+          // Rainbow Wave: double-drop from all enemies, cure all
+          for (const e of enemies) {
+            if (!e.curing) {
+              spawnDrop(e.x, e.y);
+              spawnDrop(e.x, e.y);
+              e.curing = true;
+              e.cureTimer = 0;
+            }
+          }
+          state.battle.effects.push({ x: 0, y: 0, type: 'rainbowWave', timer: 1.5, maxTimer: 1.5 });
+          break;
+        }
+      }
+    }
+
+    function updateSuperActive(dt) {
+      for (let i = 0; i < 2; i++) {
+        const sa = state.battle.superActive[i];
+        if (sa) {
+          sa.timer -= dt;
+          if (sa.timer <= 0) {
+            state.battle.superActive[i] = null;
+          }
+        }
+      }
+    }
+
+    function updateSuperButtons() {
+      const btnL = document.getElementById('super-btn-left');
+      const btnR = document.getElementById('super-btn-right');
+      if (state.screen === 'battle' && isTouchDevice) {
+        if (state.activePlayerCount >= 1) {
+          btnL.style.display = 'block';
+          if (state.battle.battlePlayers[0].superMeter >= SUPER_METER_MAX && state.battle.battlePlayers[0].alive) {
+            btnL.classList.add('ready');
+          } else {
+            btnL.classList.remove('ready');
+          }
+        }
+        if (state.activePlayerCount >= 2) {
+          btnR.style.display = 'block';
+          if (state.battle.battlePlayers[1].superMeter >= SUPER_METER_MAX && state.battle.battlePlayers[1].alive) {
+            btnR.classList.add('ready');
+          } else {
+            btnR.classList.remove('ready');
+          }
+        } else {
+          btnR.style.display = 'none';
+        }
+      } else {
+        btnL.style.display = 'none';
+        btnR.style.display = 'none';
+      }
+    }
+
+    // Super button touch events
+    document.getElementById('super-btn-left').addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      activateSuper(0);
+    });
+    document.getElementById('super-btn-right').addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      activateSuper(1);
+    });
+
+    // Keyboard super: spacebar for player 0 (or activePlayer in 1P), 'e'/'E' for player 1
+    document.addEventListener('keydown', function(e) {
+      if (state.screen !== 'battle') return;
+      if (e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault();
+        activateSuper(0);
+      } else if (e.key === 'e' || e.key === 'E') {
+        if (state.activePlayerCount >= 2) {
+          activateSuper(1);
+        }
+      }
+    });
+
+    // ============================================================
     // GAME LOOP
     // ============================================================
     let lastTime = 0;
@@ -3753,7 +3940,9 @@
           updateBattleWaves(dt);
           updateBattleEffects(dt);
           updateDrops(dt);
+          updateSuperActive(dt);
         }
+        updateSuperButtons();
 
         drawBattleBackground();
         drawBattleEnemies();
