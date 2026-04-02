@@ -2254,6 +2254,7 @@
           pd: state.battle.playerDragons,
           dsi: state.dragonSelectIndex,
           dsp: state.dragonSelectPlayer,
+          dsm: state.dragonSelectMode,
           bp: state.battle.battlePlayers.map(function(bp) {
             return {
               x: Math.round(bp.x), h: bp.hearts, sm: Math.round(bp.superMeter),
@@ -2388,6 +2389,7 @@
         state.battle.playerDragons = bat.pd;
         state.dragonSelectIndex = bat.dsi;
         state.dragonSelectPlayer = bat.dsp;
+        if (bat.dsm) state.dragonSelectMode = bat.dsm;
 
         // Update battle players
         if (bat.bp) {
@@ -4361,6 +4363,7 @@
       state.screen = 'dragonSelect';
       state.dragonSelectPlayer = 0;
       state.dragonSelectIndex = 0;
+      if (state.isHost) { startHostSync(); syncToFirebase(); }
       updateTitleTouchUI();
     });
 
@@ -4369,6 +4372,7 @@
       state.screen = 'dragonSelect';
       state.dragonSelectPlayer = 0;
       state.dragonSelectIndex = 0;
+      if (state.isHost) { startHostSync(); syncToFirebase(); }
       updateTitleTouchUI();
     });
 
@@ -4598,6 +4602,12 @@
 
       updateDragonSelectTouch();
       updateTitleTouchUI();
+
+      // Start online sync if host
+      if (state.isHost) {
+        startHostSync();
+        syncToFirebase();
+      }
     }
 
     function spawnFlightObstacle() {
@@ -8152,6 +8162,12 @@
 
       for (var i = 0; i < 3; i++) spawnSnakeEgg();
       updateTitleTouchUI();
+
+      // Start online sync if host
+      if (state.isHost) {
+        startHostSync();
+        syncToFirebase();
+      }
     }
 
     function spawnSnakeEgg() {
