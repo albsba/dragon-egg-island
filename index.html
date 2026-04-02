@@ -425,6 +425,136 @@
 
   <script>
     // ============================================================
+    // SOUND SYSTEM
+    // ============================================================
+    let audioCtx = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      } catch(e) {}
+    }
+
+    document.addEventListener('touchstart', initAudio, { once: true });
+    document.addEventListener('click', initAudio, { once: true });
+    document.addEventListener('keydown', initAudio, { once: true });
+
+    function playSound(freq, duration, type, volume) {
+      if (!audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = type || 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(volume || 0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + duration);
+      } catch(e) {}
+    }
+
+    function sfxCollect() {
+      playSound(523, 0.1, 'sine', 0.12);
+      setTimeout(() => playSound(659, 0.1, 'sine', 0.12), 60);
+      setTimeout(() => playSound(784, 0.15, 'sine', 0.10), 120);
+    }
+
+    function sfxHatch() {
+      playSound(800, 0.08, 'sine', 0.08);
+      setTimeout(() => playSound(1000, 0.08, 'sine', 0.08), 50);
+      setTimeout(() => playSound(1200, 0.08, 'sine', 0.08), 100);
+      setTimeout(() => playSound(1400, 0.12, 'sine', 0.06), 150);
+      setTimeout(() => playSound(1600, 0.15, 'sine', 0.05), 200);
+    }
+
+    function sfxShoot() {
+      playSound(440, 0.05, 'square', 0.03);
+    }
+
+    function sfxEnemyHit() {
+      playSound(200, 0.08, 'triangle', 0.06);
+    }
+
+    function sfxEnemyCure() {
+      playSound(600, 0.1, 'sine', 0.08);
+      setTimeout(() => playSound(800, 0.15, 'sine', 0.06), 80);
+    }
+
+    function sfxPlayerHit() {
+      playSound(150, 0.2, 'sawtooth', 0.08);
+    }
+
+    function sfxPowerUp() {
+      playSound(400, 0.05, 'sine', 0.08);
+      setTimeout(() => playSound(500, 0.05, 'sine', 0.08), 40);
+      setTimeout(() => playSound(600, 0.05, 'sine', 0.08), 80);
+      setTimeout(() => playSound(800, 0.1, 'sine', 0.08), 120);
+    }
+
+    function sfxSuper() {
+      playSound(262, 0.3, 'sine', 0.10);
+      playSound(330, 0.3, 'sine', 0.10);
+      playSound(392, 0.3, 'sine', 0.10);
+      playSound(523, 0.4, 'sine', 0.08);
+    }
+
+    function sfxUnlock() {
+      playSound(523, 0.15, 'sine', 0.10);
+      setTimeout(() => playSound(659, 0.15, 'sine', 0.10), 150);
+      setTimeout(() => playSound(784, 0.15, 'sine', 0.10), 300);
+      setTimeout(() => playSound(1047, 0.3, 'sine', 0.10), 450);
+    }
+
+    function sfxWaveClear() {
+      playSound(523, 0.1, 'sine', 0.08);
+      setTimeout(() => playSound(659, 0.1, 'sine', 0.08), 100);
+      setTimeout(() => playSound(784, 0.1, 'sine', 0.08), 200);
+      setTimeout(() => playSound(1047, 0.2, 'sine', 0.08), 300);
+    }
+
+    function sfxBossAppear() {
+      playSound(100, 0.3, 'sawtooth', 0.08);
+      setTimeout(() => playSound(80, 0.4, 'sawtooth', 0.06), 200);
+    }
+
+    function sfxSecret() {
+      playSound(400, 0.15, 'sine', 0.08);
+      setTimeout(() => playSound(600, 0.15, 'sine', 0.08), 100);
+      setTimeout(() => playSound(500, 0.15, 'sine', 0.08), 200);
+      setTimeout(() => playSound(700, 0.2, 'sine', 0.08), 300);
+    }
+
+    function sfxQuestComplete() {
+      playSound(784, 0.1, 'sine', 0.10);
+      setTimeout(() => playSound(988, 0.1, 'sine', 0.10), 100);
+      setTimeout(() => playSound(1175, 0.2, 'sine', 0.10), 200);
+    }
+
+    function sfxSwap() {
+      playSound(300, 0.08, 'triangle', 0.06);
+      setTimeout(() => playSound(500, 0.1, 'triangle', 0.06), 50);
+    }
+
+    function sfxRide() {
+      playSound(400, 0.1, 'sine', 0.08);
+      setTimeout(() => playSound(600, 0.12, 'sine', 0.08), 80);
+    }
+
+    function sfxMenuSelect() {
+      playSound(500, 0.05, 'sine', 0.06);
+    }
+
+    function sfxMenuConfirm() {
+      playSound(600, 0.08, 'sine', 0.08);
+      setTimeout(() => playSound(800, 0.1, 'sine', 0.08), 60);
+    }
+
+    let shotSoundCounter = 0;
+
+    // ============================================================
     // CONSTANTS
     // ============================================================
     const CANVAS_W = 800;
@@ -930,6 +1060,7 @@
         if (done) {
           q.completed = true;
           state.stars++;
+          sfxQuestComplete();
           try { localStorage.setItem('dragonIslandStars', state.stars.toString()); } catch(e) {}
           state.questComplete = { text: q.text + ' \u2605', timer: 2 };
 
@@ -2151,6 +2282,7 @@
 
     function toggleRide(playerIdx) {
       if (state.screen !== 'playing') return;
+      sfxRide();
 
       if (state.riding[playerIdx]) {
         // Dismount
@@ -2280,6 +2412,7 @@
               phase: 'wobble',
             });
             state.eggs.splice(i, 1);
+            sfxCollect();
             checkQuests();
             break;
           }
@@ -2337,6 +2470,7 @@
     }
 
     function enterSecretRoom(zoneKey) {
+      sfxSecret();
       state.inSecretRoom = true;
       state.secretRoomZone = zoneKey;
       state.secretRoomMap = generateSecretRoom(zoneKey);
@@ -2426,6 +2560,7 @@
         if (meetsCount && meetsTypes && !state.unlockedZones.includes(u.zone)) {
           state.unlockedZones.push(u.zone);
           state.unlockEffect = { timer: 0, zone: u.zone };
+          sfxUnlock();
         }
       }
     }
@@ -2451,6 +2586,7 @@
           h.timer = 0;
         } else if (h.phase === 'hatch' && h.timer > 0.6) {
           state.collection[h.type] = (state.collection[h.type] || 0) + 1;
+          sfxHatch();
 
           const followPlayer = state.activePlayerCount === 1 ? state.activePlayer : state.dragons.length % 2;
           state.dragons.push({
@@ -2805,13 +2941,16 @@
         if (keys['ArrowUp'] || keys['w']) {
           state.titleSelection = Math.max(0, state.titleSelection - 1);
           keys['ArrowUp'] = false; keys['w'] = false;
+          sfxMenuSelect();
         }
         if (keys['ArrowDown'] || keys['s']) {
           state.titleSelection = Math.min(2, state.titleSelection + 1);
           keys['ArrowDown'] = false; keys['s'] = false;
+          sfxMenuSelect();
         }
         if (keys['Enter'] || keys[' '] || keys['ArrowRight']) {
           keys['Enter'] = false; keys[' '] = false; keys['ArrowRight'] = false;
+          sfxMenuConfirm();
           if (state.titleSelection === 0) {
             state.playerMode = '1p';
             state.titleStep = 'character';
@@ -2832,19 +2971,23 @@
         if (keys['ArrowUp'] || keys['w']) {
           state.titleSelection = 0;
           keys['ArrowUp'] = false; keys['w'] = false;
+          sfxMenuSelect();
         }
         if (keys['ArrowDown'] || keys['s']) {
           state.titleSelection = 1;
           keys['ArrowDown'] = false; keys['s'] = false;
+          sfxMenuSelect();
         }
         if (keys['Escape'] || keys['ArrowLeft']) {
           state.titleStep = 'mode';
           state.titleSelection = 2;
           keys['Escape'] = false; keys['ArrowLeft'] = false;
+          sfxMenuSelect();
           updateTitleTouchUI();
         }
         if (keys['Enter'] || keys[' ']) {
           keys['Enter'] = false; keys[' '] = false;
+          sfxMenuConfirm();
           if (state.titleSelection === 0) {
             createRoom();
           } else {
@@ -2856,19 +2999,23 @@
         if (keys['ArrowLeft'] || keys['a']) {
           state.titleSelection = 0;
           keys['ArrowLeft'] = false; keys['a'] = false;
+          sfxMenuSelect();
         }
         if (keys['ArrowRight'] || keys['d']) {
           state.titleSelection = 1;
           keys['ArrowRight'] = false; keys['d'] = false;
+          sfxMenuSelect();
         }
         if (keys['Escape'] || keys['ArrowUp'] || keys['w']) {
           state.titleStep = 'mode';
           state.titleSelection = 0;
           keys['Escape'] = false; keys['ArrowUp'] = false; keys['w'] = false;
+          sfxMenuSelect();
           updateTitleTouchUI();
         }
         if (keys['Enter'] || keys[' ']) {
           keys['Enter'] = false; keys[' '] = false;
+          sfxMenuConfirm();
           state.selectedChar = state.titleSelection === 0 ? 'harper' : 'audrey';
           state.titleStep = 'gametype';
           state.titleSelection = 0;
@@ -2879,10 +3026,12 @@
         if (keys['ArrowUp'] || keys['w']) {
           state.titleSelection = Math.max(0, state.titleSelection - 1);
           keys['ArrowUp'] = false; keys['w'] = false;
+          sfxMenuSelect();
         }
         if (keys['ArrowDown'] || keys['s']) {
           state.titleSelection = Math.min(2, state.titleSelection + 1);
           keys['ArrowDown'] = false; keys['s'] = false;
+          sfxMenuSelect();
         }
         if (keys['Escape'] || keys['ArrowLeft']) {
           if (state.playerMode === '1p') {
@@ -2897,10 +3046,12 @@
           }
           state.titleSelection = 0;
           keys['Escape'] = false; keys['ArrowLeft'] = false;
+          sfxMenuSelect();
           updateTitleTouchUI();
         }
         if (keys['Enter'] || keys[' ']) {
           keys['Enter'] = false; keys[' '] = false;
+          sfxMenuConfirm();
           if (state.titleSelection === 2) {
             // Dragon Battle
             state.screen = 'dragonSelect';
@@ -3830,6 +3981,8 @@
 
     function spawnShots(playerId, x, y, config, isGiant) {
       if (state.battle.shots.length >= 50) return;
+      shotSoundCounter++;
+      if (shotSoundCounter % 4 === 0) sfxShoot();
       const shots = state.battle.shots;
       const spd = config.shotSpeed;
       const col = config.color;
@@ -3926,6 +4079,8 @@
       const enemiesToSpawn = waveDef.enemies;
       const pattern = waveDef.pattern || 'row';
       const isRush = waveDef.rush || false;
+
+      if (pattern === 'boss') sfxBossAppear();
 
       for (let i = 0; i < enemiesToSpawn.length; i++) {
         const typeName = enemiesToSpawn[i];
@@ -4355,6 +4510,7 @@
           if (s.x - sw / 2 < e.x + es && s.x + sw / 2 > e.x - es &&
               s.y - sh < e.y + es && s.y + sh > e.y - es) {
             e.hp -= dmg;
+            sfxEnemyHit();
             state.battle.effects.push({ x: s.x, y: s.y, type: 'hit', timer: 0.3, maxTimer: 0.3 });
 
             // Slime Queen: spawn mini slime every 3rd hit
@@ -4397,6 +4553,7 @@
             if (e.hp <= 0) {
               e.curing = true;
               e.cureTimer = 0;
+              sfxEnemyCure();
 
               // Splits
               if (e.splits && e.type !== 'slimeQueen') {
@@ -4562,6 +4719,7 @@
       }
       b.hearts--;
       b.invTimer = 1;
+      sfxPlayerHit();
       state.battle.hitStreak[playerIdx]++;
       state.battle.effects.push({ x: b.x, y: BATTLE_PLAYER_Y, type: 'playerHit', timer: 0.4, maxTimer: 0.4 });
       triggerScreenShake(3, 0.15);
@@ -4585,6 +4743,7 @@
         if (remaining <= 2) {
           b.waveState = 'clearing';
           b.waveTimer = 0;
+          sfxWaveClear();
         }
       } else if (b.waveState === 'clearing') {
         b.waveTimer += dt;
@@ -5251,6 +5410,11 @@
 
     function applyDrop(type, playerIdx) {
       const b = state.battle.battlePlayers[playerIdx];
+      if (type === 'heart') {
+        sfxCollect();
+      } else {
+        sfxPowerUp();
+      }
       switch (type) {
         case 'heart':
           b.hearts = Math.min(MAX_HEARTS, b.hearts + 1);
@@ -6244,6 +6408,7 @@
 
     function swapDragon(playerIdx) {
       if (state.screen !== 'battle') return;
+      sfxSwap();
       const dragonKeys = Object.keys(DRAGON_CONFIGS);
       const currentKey = state.battle.playerDragons[playerIdx];
       if (!currentKey) return;
@@ -6274,6 +6439,7 @@
       const dragonKey = state.battle.playerDragons[playerIdx];
       if (!dragonKey) return;
 
+      sfxSuper();
       b.superMeter = 0;
       triggerScreenShake(5, 0.3);
       const enemies = state.battle.enemies;
