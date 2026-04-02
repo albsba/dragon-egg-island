@@ -398,6 +398,7 @@
     <button class="title-touch-btn" id="btn-adventure" style="display:none;">Adventure</button>
     <button class="title-touch-btn" id="btn-freeplay" style="display:none;">Free Play</button>
     <button class="title-touch-btn" id="btn-battle" style="display:none;">Dragon Battle</button>
+    <button class="title-touch-btn" id="btn-flight" style="display:none;">Dragon Flight</button>
     <!-- Step: online -->
     <button class="title-touch-btn" id="btn-create-room" style="display:none;">Create Room</button>
     <button class="title-touch-btn" id="btn-join-room" style="display:none;">Join Room</button>
@@ -1809,6 +1810,23 @@
     };
     state.dragonSelectPlayer = 0;
     state.dragonSelectIndex = 0;
+    state.dragonSelectMode = 'battle'; // 'battle' or 'flight'
+
+    // Flight mode state
+    state.flight = {
+      scrollSpeed: 100,
+      distance: 0,
+      score: 0,
+      obstacles: [],
+      eggs: [],
+      players: [
+        { y: CANVAS_H / 2 - 40, vy: 0, stunTimer: 0, shieldTimer: 0 },
+        { y: CANVAS_H / 2 + 40, vy: 0, stunTimer: 0, shieldTimer: 0 },
+      ],
+      playerDragons: [null, null],
+      spawnTimer: 0,
+      eggSpawnTimer: 0,
+    };
 
     // Secret room state
     state.inSecretRoom = false;
@@ -2931,31 +2949,39 @@
         const advSel = state.titleSelection === 0;
         const fpSel  = state.titleSelection === 1;
         const btSel  = state.titleSelection === 2;
+        const flSel  = state.titleSelection === 3;
 
         ctx.fillStyle = advSel ? '#FFD700' : '#666';
-        ctx.font = (advSel ? 'bold ' : '') + '22px monospace';
-        ctx.fillText(advSel ? '> Adventure <' : 'Adventure', CANVAS_W / 2, 290);
-        ctx.font = '11px monospace';
+        ctx.font = (advSel ? 'bold ' : '') + '20px monospace';
+        ctx.fillText(advSel ? '> Adventure <' : 'Adventure', CANVAS_W / 2, 275);
+        ctx.font = '10px monospace';
         ctx.fillStyle = advSel ? '#ccc' : '#555';
-        ctx.fillText('Explore zones, collect eggs, unlock new areas!', CANVAS_W / 2, 310);
+        ctx.fillText('Explore zones, collect eggs, unlock new areas!', CANVAS_W / 2, 292);
 
         ctx.fillStyle = fpSel ? '#FFD700' : '#666';
-        ctx.font = (fpSel ? 'bold ' : '') + '22px monospace';
-        ctx.fillText(fpSel ? '> Free Play <' : 'Free Play', CANVAS_W / 2, 360);
-        ctx.font = '11px monospace';
+        ctx.font = (fpSel ? 'bold ' : '') + '20px monospace';
+        ctx.fillText(fpSel ? '> Free Play <' : 'Free Play', CANVAS_W / 2, 335);
+        ctx.font = '10px monospace';
         ctx.fillStyle = fpSel ? '#ccc' : '#555';
-        ctx.fillText('All zones open, just explore and have fun!', CANVAS_W / 2, 380);
+        ctx.fillText('All zones open, just explore and have fun!', CANVAS_W / 2, 352);
 
         ctx.fillStyle = btSel ? '#FFD700' : '#666';
-        ctx.font = (btSel ? 'bold ' : '') + '22px monospace';
-        ctx.fillText(btSel ? '> Dragon Battle <' : 'Dragon Battle', CANVAS_W / 2, 430);
-        ctx.font = '11px monospace';
+        ctx.font = (btSel ? 'bold ' : '') + '20px monospace';
+        ctx.fillText(btSel ? '> Dragon Battle <' : 'Dragon Battle', CANVAS_W / 2, 395);
+        ctx.font = '10px monospace';
         ctx.fillStyle = btSel ? '#ccc' : '#555';
-        ctx.fillText('Fight waves of shadow enemies with your dragon!', CANVAS_W / 2, 450);
+        ctx.fillText('Fight waves of shadow enemies with your dragon!', CANVAS_W / 2, 412);
+
+        ctx.fillStyle = flSel ? '#FFD700' : '#666';
+        ctx.font = (flSel ? 'bold ' : '') + '20px monospace';
+        ctx.fillText(flSel ? '> Dragon Flight <' : 'Dragon Flight', CANVAS_W / 2, 455);
+        ctx.font = '10px monospace';
+        ctx.fillStyle = flSel ? '#ccc' : '#555';
+        ctx.fillText('Fly through obstacles and collect eggs!', CANVAS_W / 2, 472);
 
         ctx.fillStyle = '#555';
         ctx.font = '11px monospace';
-        ctx.fillText('Use Arrows/WASD to select  |  Enter to confirm  |  Left/Esc to go back', CANVAS_W / 2, 490);
+        ctx.fillText('Use Arrows/WASD to select  |  Enter to confirm  |  Left/Esc to go back', CANVAS_W / 2, 510);
 
       } else if (state.titleStep === 'online') {
         // --- Step: Online room setup ---
@@ -3088,7 +3114,7 @@
           sfxMenuSelect();
         }
         if (keys['ArrowDown'] || keys['s']) {
-          state.titleSelection = Math.min(2, state.titleSelection + 1);
+          state.titleSelection = Math.min(3, state.titleSelection + 1);
           keys['ArrowDown'] = false; keys['s'] = false;
           sfxMenuSelect();
         }
@@ -3111,8 +3137,9 @@
         if (keys['Enter'] || keys[' ']) {
           keys['Enter'] = false; keys[' '] = false;
           sfxMenuConfirm();
-          if (state.titleSelection === 2) {
-            // Dragon Battle
+          if (state.titleSelection === 2 || state.titleSelection === 3) {
+            // Dragon Battle or Dragon Flight
+            state.dragonSelectMode = state.titleSelection === 2 ? 'battle' : 'flight';
             state.screen = 'dragonSelect';
             state.dragonSelectPlayer = 0;
             state.dragonSelectIndex = 0;
@@ -3579,7 +3606,7 @@
     const TITLE_STEP_BTNS = {
       mode:      ['btn-1p', 'btn-2p-local', 'btn-2p-online'],
       character: ['btn-harper', 'btn-audrey'],
-      gametype:  ['btn-adventure', 'btn-freeplay', 'btn-battle'],
+      gametype:  ['btn-adventure', 'btn-freeplay', 'btn-battle', 'btn-flight'],
       online:    ['btn-create-room', 'btn-join-room'],
     };
 
@@ -3629,6 +3656,23 @@
           dpadRight.classList.remove('visible');
           if (rideBtnL) rideBtnL.style.display = 'none';
           if (rideBtnR) rideBtnR.style.display = 'none';
+          return;
+        }
+        if (state.screen === 'flight') {
+          // Flight mode: show d-pads for up/down control
+          if (!isTouchDevice) return;
+          if (state.activePlayerCount === 1) {
+            if (state.activePlayer === 0) {
+              dpadLeft.classList.add('visible');
+              dpadRight.classList.remove('visible');
+            } else {
+              dpadLeft.classList.remove('visible');
+              dpadRight.classList.add('visible');
+            }
+          } else {
+            dpadLeft.classList.add('visible');
+            dpadRight.classList.add('visible');
+          }
           return;
         }
         if (state.screen !== 'playing') {
@@ -3728,10 +3772,19 @@
     });
 
     titleTouchBtn('btn-battle', function() {
+      state.dragonSelectMode = 'battle';
       state.screen = 'dragonSelect';
       state.dragonSelectPlayer = 0;
       state.dragonSelectIndex = 0;
       if (state.isHost) { startHostSync(); syncToFirebase(); }
+      updateTitleTouchUI();
+    });
+
+    titleTouchBtn('btn-flight', function() {
+      state.dragonSelectMode = 'flight';
+      state.screen = 'dragonSelect';
+      state.dragonSelectPlayer = 0;
+      state.dragonSelectIndex = 0;
       updateTitleTouchUI();
     });
 
@@ -3863,8 +3916,9 @@
       ctx.fillText('Super: ' + selCfg.superName, CANVAS_W / 2, 402);
 
       // Show player 1's choice if player 2 is selecting
-      if (state.dragonSelectPlayer === 1 && state.battle.playerDragons[0] !== null) {
-        const p1Key = state.battle.playerDragons[0];
+      const selectDragons = state.dragonSelectMode === 'flight' ? state.flight.playerDragons : state.battle.playerDragons;
+      if (state.dragonSelectPlayer === 1 && selectDragons[0] !== null) {
+        const p1Key = selectDragons[0];
         const p1Cfg = DRAGON_CONFIGS[p1Key];
         ctx.fillStyle = '#888';
         ctx.font = '13px monospace';
@@ -3894,15 +3948,23 @@
       if (keys['Enter'] || keys[' ']) {
         keys['Enter'] = false; keys[' '] = false;
         const chosenDragon = DRAGON_KEYS[state.dragonSelectIndex];
-        state.battle.playerDragons[state.dragonSelectPlayer] = chosenDragon;
+        if (state.dragonSelectMode === 'flight') {
+          state.flight.playerDragons[state.dragonSelectPlayer] = chosenDragon;
+        } else {
+          state.battle.playerDragons[state.dragonSelectPlayer] = chosenDragon;
+        }
 
         if (state.dragonSelectPlayer === 0 && state.activePlayerCount === 2) {
           // Advance to player 2
           state.dragonSelectPlayer = 1;
           state.dragonSelectIndex = 0;
         } else {
-          // Start the battle
-          startBattle();
+          // Start the appropriate mode
+          if (state.dragonSelectMode === 'flight') {
+            startFlight();
+          } else {
+            startBattle();
+          }
         }
       }
       if (keys['Escape']) {
@@ -3910,18 +3972,295 @@
         if (state.dragonSelectPlayer === 1) {
           // Go back to player 1 selection
           state.dragonSelectPlayer = 0;
-          state.battle.playerDragons[0] = null;
+          if (state.dragonSelectMode === 'flight') {
+            state.flight.playerDragons[0] = null;
+          } else {
+            state.battle.playerDragons[0] = null;
+          }
           state.dragonSelectIndex = 0;
         } else {
           // Go back to title gametype step
           state.screen = 'title';
           state.titleStep = 'gametype';
-          state.titleSelection = 2;
+          state.titleSelection = state.dragonSelectMode === 'flight' ? 3 : 2;
           updateTitleTouchUI();
         }
       }
 
       updateDragonSelectTouch();
+    }
+
+    // ============================================================
+    // DRAGON FLIGHT MODE
+    // ============================================================
+
+    function startFlight() {
+      state.screen = 'flight';
+      state.flight.scrollSpeed = 100;
+      state.flight.distance = 0;
+      state.flight.score = 0;
+      state.flight.obstacles = [];
+      state.flight.eggs = [];
+      state.flight.spawnTimer = 2;
+      state.flight.eggSpawnTimer = 1;
+      state.flight.players[0] = { y: CANVAS_H / 2 - 40, vy: 0, stunTimer: 0, shieldTimer: 0 };
+      state.flight.players[1] = { y: CANVAS_H / 2 + 40, vy: 0, stunTimer: 0, shieldTimer: 0 };
+
+      updateDragonSelectTouch();
+      updateTitleTouchUI();
+    }
+
+    function spawnFlightObstacle() {
+      const minGap = Math.max(120, 220 - state.flight.distance * 0.01);
+      const gapHeight = minGap + Math.random() * 40;
+      const gapY = gapHeight / 2 + 40 + Math.random() * (CANVAS_H - gapHeight - 80);
+      const types = ['rock', 'ice', 'lava', 'tree'];
+
+      state.flight.obstacles.push({
+        x: CANVAS_W + 20,
+        gapY: gapY,
+        gapHeight: gapHeight,
+        type: types[Math.floor(Math.random() * types.length)],
+        scored: false,
+      });
+    }
+
+    function updateFlightPlayers(dt) {
+      const activePlayers = getActivePlayers();
+      for (let i = 0; i < activePlayers.length; i++) {
+        const p = activePlayers[i];
+        const pi = state.activePlayerCount === 1 ? state.activePlayer : i;
+        const fp = state.flight.players[pi];
+
+        if (fp.stunTimer > 0) {
+          fp.stunTimer -= dt;
+          continue;
+        }
+
+        const input = getPlayerInput(p.keys.up, p.keys.down, p.keys.left, p.keys.right);
+
+        // Gravity + input
+        fp.vy += 80 * dt; // gentle gravity
+        if (input.dy < 0) fp.vy = -180; // up
+        if (input.dy > 0) fp.vy = 180; // down
+
+        fp.y += fp.vy * dt;
+        fp.y = Math.max(30, Math.min(CANVAS_H - 30, fp.y));
+
+        // Dampen velocity
+        fp.vy *= 0.95;
+      }
+    }
+
+    function checkFlightCollisions() {
+      const playerX = 100; // fixed X position on screen
+
+      for (let i = 0; i < state.activePlayerCount; i++) {
+        const pi = state.activePlayerCount === 1 ? state.activePlayer : i;
+        const fp = state.flight.players[pi];
+        if (fp.stunTimer > 0 || fp.shieldTimer > 0) continue;
+
+        for (const obs of state.flight.obstacles) {
+          if (Math.abs(obs.x - playerX) > 25) continue;
+
+          const inGap = fp.y > obs.gapY - obs.gapHeight / 2 + 10 &&
+                        fp.y < obs.gapY + obs.gapHeight / 2 - 10;
+          if (!inGap) {
+            fp.stunTimer = 1;
+            fp.vy = 0;
+            sfxPlayerHit();
+            break;
+          }
+        }
+
+        // Score for passing obstacles
+        for (const obs of state.flight.obstacles) {
+          if (!obs.scored && obs.x < playerX - 20) {
+            obs.scored = true;
+            state.flight.score += 10;
+          }
+        }
+      }
+    }
+
+    function checkFlightEggs() {
+      const playerX = 100;
+      for (let i = state.flight.eggs.length - 1; i >= 0; i--) {
+        const egg = state.flight.eggs[i];
+        for (let pi2 = 0; pi2 < state.activePlayerCount; pi2++) {
+          const idx = state.activePlayerCount === 1 ? state.activePlayer : pi2;
+          const fp = state.flight.players[idx];
+          if (Math.abs(egg.x - playerX) < 20 && Math.abs(egg.y - fp.y) < 20) {
+            state.flight.score += 25;
+            sfxCollect();
+            state.flight.eggs.splice(i, 1);
+            break;
+          }
+        }
+      }
+    }
+
+    function updateFlight(dt) {
+      // Increase speed gradually
+      state.flight.scrollSpeed = Math.min(300, 100 + state.flight.distance * 0.005);
+      state.flight.distance += state.flight.scrollSpeed * dt;
+
+      // Spawn obstacles
+      state.flight.spawnTimer -= dt;
+      var spawnInterval = Math.max(1.5, 2.5 - state.flight.distance * 0.0003);
+      if (state.flight.spawnTimer <= 0) {
+        spawnFlightObstacle();
+        state.flight.spawnTimer = spawnInterval;
+      }
+
+      // Spawn eggs
+      state.flight.eggSpawnTimer -= dt;
+      if (state.flight.eggSpawnTimer <= 0) {
+        state.flight.eggSpawnTimer = 1.5 + Math.random();
+        var eggTypes = ['fire','nature','love','ice','star','shadow','ghost','thorn'];
+        state.flight.eggs.push({
+          x: CANVAS_W + 20,
+          y: 50 + Math.random() * (CANVAS_H - 100),
+          type: eggTypes[Math.floor(Math.random() * eggTypes.length)],
+        });
+      }
+
+      // Scroll obstacles and eggs
+      for (var oi = 0; oi < state.flight.obstacles.length; oi++) {
+        state.flight.obstacles[oi].x -= state.flight.scrollSpeed * dt;
+      }
+      for (var ei = 0; ei < state.flight.eggs.length; ei++) {
+        state.flight.eggs[ei].x -= state.flight.scrollSpeed * dt;
+      }
+
+      // Remove off-screen
+      state.flight.obstacles = state.flight.obstacles.filter(function(o) { return o.x > -50; });
+      state.flight.eggs = state.flight.eggs.filter(function(e) { return e.x > -20; });
+
+      // Decrement shield timers
+      for (var si = 0; si < state.flight.players.length; si++) {
+        if (state.flight.players[si].shieldTimer > 0) state.flight.players[si].shieldTimer -= dt;
+      }
+
+      updateFlightPlayers(dt);
+      checkFlightCollisions();
+      checkFlightEggs();
+    }
+
+    function drawFlightBackground() {
+      // Sky gradient
+      ctx.fillStyle = '#1a1a3e';
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+      // Far mountains (parallax slow)
+      var farOffset = (state.flight.distance * 0.2) % 300;
+      ctx.fillStyle = '#2a2a4e';
+      for (var i = -1; i < 4; i++) {
+        var bx = i * 300 - farOffset;
+        ctx.beginPath();
+        ctx.moveTo(bx, CANVAS_H);
+        ctx.lineTo(bx + 150, CANVAS_H - 200 - Math.sin(i * 2.3) * 50);
+        ctx.lineTo(bx + 300, CANVAS_H);
+        ctx.fill();
+      }
+
+      // Mid clouds
+      var midOffset = (state.flight.distance * 0.5) % 200;
+      ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      for (var j = -1; j < 6; j++) {
+        var cx = j * 200 - midOffset;
+        var cy = 80 + Math.sin(j * 1.7) * 40;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 30, 0, Math.PI * 2);
+        ctx.arc(cx + 25, cy - 10, 25, 0, Math.PI * 2);
+        ctx.arc(cx + 50, cy, 28, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Ground
+      var nearOffset = state.flight.distance % 60;
+      ctx.fillStyle = '#1a3a1e';
+      ctx.fillRect(0, CANVAS_H - 20, CANVAS_W, 20);
+      // Ground details
+      ctx.fillStyle = '#2a4a2e';
+      for (var k = -1; k < 15; k++) {
+        var gx = k * 60 - nearOffset;
+        ctx.fillRect(gx, CANVAS_H - 20, 3, -8 - Math.sin(k * 1.1) * 5);
+      }
+    }
+
+    function drawFlightObstacles() {
+      var colors = { rock: '#666', ice: '#81D4FA', lava: '#FF6F00', tree: '#2d7a1e' };
+
+      for (var i = 0; i < state.flight.obstacles.length; i++) {
+        var obs = state.flight.obstacles[i];
+        var color = colors[obs.type] || '#666';
+        ctx.fillStyle = color;
+
+        // Top block
+        ctx.fillRect(obs.x - 20, 0, 40, obs.gapY - obs.gapHeight / 2);
+        // Bottom block
+        ctx.fillRect(obs.x - 20, obs.gapY + obs.gapHeight / 2, 40, CANVAS_H - obs.gapY - obs.gapHeight / 2);
+
+        // Edge detail
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fillRect(obs.x - 20, obs.gapY - obs.gapHeight / 2 - 5, 40, 5);
+        ctx.fillRect(obs.x - 20, obs.gapY + obs.gapHeight / 2, 40, 5);
+      }
+    }
+
+    function drawFlightPlayers() {
+      var playerX = 100;
+      for (var i = 0; i < state.activePlayerCount; i++) {
+        var pi = state.activePlayerCount === 1 ? state.activePlayer : i;
+        var fp = state.flight.players[pi];
+        var dragonKey = state.flight.playerDragons[pi];
+
+        if (fp.stunTimer > 0 && Math.floor(state.time * 10) % 2 === 0) continue; // flash
+
+        // Draw dragon
+        if (dragonKey && DRAGON_SPRITES[dragonKey]) {
+          drawSprite(DRAGON_SPRITES[dragonKey], playerX - 18, fp.y - 12, 36);
+        }
+
+        // Shield effect
+        if (fp.shieldTimer > 0) {
+          ctx.strokeStyle = 'rgba(105, 240, 174, 0.5)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(playerX, fp.y, 22, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Stun stars
+        if (fp.stunTimer > 0) {
+          ctx.fillStyle = '#FFD700';
+          ctx.font = '12px monospace';
+          for (var s = 0; s < 3; s++) {
+            var angle = state.time * 5 + s * 2.1;
+            var sx = playerX + Math.cos(angle) * 18;
+            var sy = fp.y - 16 + Math.sin(angle) * 8;
+            ctx.fillText('\u2605', sx - 4, sy);
+          }
+        }
+      }
+    }
+
+    function drawFlightHUD() {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 16px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('Score: ' + state.flight.score, 10, 25);
+
+      ctx.textAlign = 'right';
+      ctx.fillText('Distance: ' + Math.floor(state.flight.distance / 10) + 'm', CANVAS_W - 10, 25);
+
+      // Speed indicator
+      ctx.fillStyle = '#aaa';
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'center';
+      var speedPct = Math.floor((state.flight.scrollSpeed / 300) * 100);
+      ctx.fillText('Speed: ' + speedPct + '%', CANVAS_W / 2, 25);
     }
 
     function startBattle() {
@@ -6807,6 +7146,15 @@
       }
     });
 
+    // Escape from flight mode
+    document.addEventListener('keydown', function(e) {
+      if (state.screen !== 'flight') return;
+      if (e.key === 'Escape') {
+        returnToTitle();
+        updateTitleTouchUI();
+      }
+    });
+
     // ============================================================
     // GAME LOOP
     // ============================================================
@@ -6948,6 +7296,20 @@
           ctx.textAlign = 'center';
           ctx.fillText('Drag to move!', CANVAS_W / 2, CANVAS_H - 30);
         }
+      } else if (state.screen === 'flight') {
+        if (!state.isGuest) {
+          updateFlight(dt);
+        }
+        drawFlightBackground();
+        drawFlightObstacles();
+        // Draw eggs
+        for (var fe = 0; fe < state.flight.eggs.length; fe++) {
+          var egg = state.flight.eggs[fe];
+          var bob = Math.sin(state.time * 3 + egg.x * 0.01) * 3;
+          drawSprite(EGG_SPRITES[egg.type] || EGG_SPRITES.fire, egg.x - 10, egg.y - 10 + bob, 20);
+        }
+        drawFlightPlayers();
+        drawFlightHUD();
       }
 
       requestAnimationFrame(loop);
