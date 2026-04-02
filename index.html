@@ -2208,6 +2208,44 @@
       // Include screen so guest knows what mode we're in
       syncData.scr = state.screen;
 
+      if (state.screen === 'flight') {
+        syncData.flt = {
+          sc: state.flight.score,
+          dist: Math.round(state.flight.distance),
+          spd: Math.round(state.flight.scrollSpeed),
+          obs: state.flight.obstacles.slice(0, 15).map(function(o) {
+            return { x: Math.round(o.x), gy: Math.round(o.gapY), gh: Math.round(o.gapHeight), t: o.type, s: o.scored };
+          }),
+          eggs: state.flight.eggs.slice(0, 10).map(function(e) {
+            return { x: Math.round(e.x), y: Math.round(e.y), t: e.type };
+          }),
+          p: state.flight.players.map(function(fp) {
+            return { y: Math.round(fp.y), vy: Math.round(fp.vy), st: fp.stunTimer, sh: fp.shieldTimer };
+          }),
+          pd: state.flight.playerDragons,
+          st: state.flight.spawnTimer,
+          est: state.flight.eggSpawnTimer,
+        };
+      }
+
+      if (state.screen === 'snake') {
+        syncData.snk = {
+          p: state.snake.players.map(function(sp) {
+            return {
+              seg: sp.segments.slice(0, 30).map(function(s) { return { x: s.x, y: s.y }; }),
+              d: sp.dir, nd: sp.nextDir, sc: sp.score, st: sp.stunTimer,
+              sh: sp.shieldTimer, gh: sp.ghostTimer, mg: sp.magnetTimer,
+              mt: sp.moveTimer,
+            };
+          }),
+          eggs: state.snake.eggs.map(function(e) { return { x: e.x, y: e.y, t: e.type }; }),
+          pu: state.snake.powerUps.map(function(p) { return { x: p.x, y: p.y, t: p.type }; }),
+          pd: state.snake.playerDragons,
+          mi: state.snake.moveInterval,
+          tm: state.snake.time,
+        };
+      }
+
       if (state.screen === 'battle' || state.screen === 'dragonSelect') {
         syncData.bat = {
           w: state.battle.wave,
@@ -2297,6 +2335,48 @@
       // Screen sync (battle / dragonSelect / playing)
       if (gs.scr) {
         state.screen = gs.scr;
+      }
+
+      // Flight state sync
+      if (gs.flt) {
+        state.flight.score = gs.flt.sc;
+        state.flight.distance = gs.flt.dist;
+        state.flight.scrollSpeed = gs.flt.spd;
+        state.flight.spawnTimer = gs.flt.st || 0;
+        state.flight.eggSpawnTimer = gs.flt.est || 0;
+        state.flight.playerDragons = gs.flt.pd;
+        state.flight.obstacles = gs.flt.obs.map(function(o) {
+          return { x: o.x, gapY: o.gy, gapHeight: o.gh, type: o.t, scored: o.s };
+        });
+        state.flight.eggs = gs.flt.eggs.map(function(e) {
+          return { x: e.x, y: e.y, type: e.t };
+        });
+        gs.flt.p.forEach(function(fp, i) {
+          state.flight.players[i].y = fp.y;
+          state.flight.players[i].vy = fp.vy || 0;
+          state.flight.players[i].stunTimer = fp.st;
+          state.flight.players[i].shieldTimer = fp.sh;
+        });
+      }
+
+      // Snake state sync
+      if (gs.snk) {
+        state.snake.moveInterval = gs.snk.mi;
+        state.snake.time = gs.snk.tm || 0;
+        state.snake.playerDragons = gs.snk.pd;
+        state.snake.eggs = gs.snk.eggs.map(function(e) { return { x: e.x, y: e.y, type: e.t }; });
+        state.snake.powerUps = gs.snk.pu.map(function(p) { return { x: p.x, y: p.y, type: p.t }; });
+        gs.snk.p.forEach(function(sp, i) {
+          state.snake.players[i].segments = sp.seg.map(function(s) { return { x: s.x, y: s.y }; });
+          state.snake.players[i].dir = sp.d;
+          state.snake.players[i].nextDir = sp.nd || sp.d;
+          state.snake.players[i].score = sp.sc;
+          state.snake.players[i].stunTimer = sp.st;
+          state.snake.players[i].shieldTimer = sp.sh;
+          state.snake.players[i].ghostTimer = sp.gh;
+          state.snake.players[i].magnetTimer = sp.mg;
+          state.snake.players[i].moveTimer = sp.mt || 0;
+        });
       }
 
       // Battle state sync
@@ -4142,13 +4222,35 @@
           if (rideBtnR) rideBtnR.style.display = 'none';
           return;
         }
-        // Adventure mode: hide d-pads on touch devices (joystick replaces them)
-        // Keep d-pads for non-touch (desktop keyboard users won't have joystick)
+        // Adventure mode: show d-pads alongside joystick for multi-player touch
         if (isTouchDevice) {
-          dpadLeft.classList.remove('visible');
-          dpadRight.classList.remove('visible');
+          if (state.playerMode === '2p-online') {
+            // 2-iPad: each player sees one d-pad on the RIGHT side
+            if (state.isHost) {
+              dpadLeft.classList.add('visible');
+              dpadRight.classList.remove('visible');
+              dpadLeft.style.left = '';
+              dpadLeft.style.right = '20px';
+            } else if (state.isGuest) {
+              dpadLeft.classList.remove('visible');
+              dpadRight.classList.add('visible');
+              // already on right
+            }
+          } else if (state.activePlayerCount === 2) {
+            // 2P same iPad: show both d-pads so player 2 can use d-pad
+            dpadLeft.style.left = '20px';
+            dpadLeft.style.right = '';
+            dpadRight.style.right = '20px';
+            dpadRight.style.left = '';
+            dpadLeft.classList.add('visible');
+            dpadRight.classList.add('visible');
+          } else {
+            // 1P: joystick only is fine
+            dpadLeft.classList.remove('visible');
+            dpadRight.classList.remove('visible');
+          }
         } else {
-          // Desktop: no d-pads needed either (keyboard controls)
+          // Desktop: no d-pads needed (keyboard controls)
           dpadLeft.classList.remove('visible');
           dpadRight.classList.remove('visible');
         }
@@ -4525,7 +4627,12 @@
           continue;
         }
 
-        const input = getPlayerInput(p.keys.up, p.keys.down, p.keys.left, p.keys.right);
+        let input;
+        if (state.isHost && pi === 1) {
+          input = { dx: remoteGuestInput.dx, dy: remoteGuestInput.dy };
+        } else {
+          input = getPlayerInput(p.keys.up, p.keys.down, p.keys.left, p.keys.right);
+        }
 
         // Gravity + input
         fp.vy += 80 * dt; // gentle gravity
@@ -8109,7 +8216,12 @@
         }
 
         // Read input for direction change
-        var input = getPlayerInput(p.keys.up, p.keys.down, p.keys.left, p.keys.right);
+        var input;
+        if (state.isHost && pi === 1) {
+          input = { dx: remoteGuestInput.dx, dy: remoteGuestInput.dy };
+        } else {
+          input = getPlayerInput(p.keys.up, p.keys.down, p.keys.left, p.keys.right);
+        }
         if (input.dx !== 0 || input.dy !== 0) {
           // Prevent 180 reversal
           if (!(input.dx === -sp.dir.dx && input.dy === -sp.dir.dy)) {
@@ -8548,7 +8660,17 @@
           ctx.fillText('Drag to move!', CANVAS_W / 2, CANVAS_H - 30);
         }
       } else if (state.screen === 'flight') {
-        if (!state.isGuest) {
+        if (state.isGuest) {
+          // Guest: send d-pad/joystick input for flight
+          const guestInput = getPlayerInput(
+            players[1].keys.up, players[1].keys.down,
+            players[1].keys.left, players[1].keys.right
+          );
+          const altInput = getPlayerInput('ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight');
+          const dx = guestInput.dx || altInput.dx;
+          const dy = guestInput.dy || altInput.dy;
+          sendGuestInput(dx, dy);
+        } else {
           updateFlight(dt);
         }
         drawFlightBackground();
@@ -8562,7 +8684,17 @@
         drawFlightPlayers();
         drawFlightHUD();
       } else if (state.screen === 'snake') {
-        if (!state.isGuest) {
+        if (state.isGuest) {
+          // Guest: send d-pad/joystick input for snake
+          const guestInput = getPlayerInput(
+            players[1].keys.up, players[1].keys.down,
+            players[1].keys.left, players[1].keys.right
+          );
+          const altInput = getPlayerInput('ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight');
+          const dx = guestInput.dx || altInput.dx;
+          const dy = guestInput.dy || altInput.dy;
+          sendGuestInput(dx, dy);
+        } else {
           updateSnake(dt);
         }
         drawSnakeBackground();
