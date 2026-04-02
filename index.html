@@ -3605,10 +3605,9 @@
       for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
 
-        // Skip if touching a button / d-pad / ride button
-        // If elementFromPoint returns null (e.g. on canvas), treat as joystick
+        // Skip if touching a UI button (ride, super, swap, etc.)
         const target = document.elementFromPoint(touch.clientX, touch.clientY);
-        if (target && (target.tagName === 'BUTTON' || target.closest('.dpad') || target.closest('.ride-btn'))) continue;
+        if (target && target.tagName === 'BUTTON') continue;
 
         const screenMid = window.innerWidth / 2;
         const side = touch.clientX < screenMid ? 'left' : 'right';
@@ -3744,26 +3743,15 @@
           if (rideBtnR) rideBtnR.style.display = 'none';
           return;
         }
-        if (state.playerMode === '2p-online') {
-          // Online: host gets left d-pad (Harper), guest gets right d-pad (Audrey)
-          if (state.isHost) {
-            dpadLeft.classList.add('visible');
-            dpadRight.classList.remove('visible');
-          } else if (state.isGuest) {
-            dpadLeft.classList.remove('visible');
-            dpadRight.classList.add('visible');
-          }
-        } else if (state.activePlayerCount === 1) {
-          if (state.activePlayer === 0) {
-            dpadLeft.classList.add('visible');
-            dpadRight.classList.remove('visible');
-          } else {
-            dpadLeft.classList.remove('visible');
-            dpadRight.classList.add('visible');
-          }
+        // Adventure mode: hide d-pads on touch devices (joystick replaces them)
+        // Keep d-pads for non-touch (desktop keyboard users won't have joystick)
+        if (isTouchDevice) {
+          dpadLeft.classList.remove('visible');
+          dpadRight.classList.remove('visible');
         } else {
-          dpadLeft.classList.add('visible');
-          dpadRight.classList.add('visible');
+          // Desktop: no d-pads needed either (keyboard controls)
+          dpadLeft.classList.remove('visible');
+          dpadRight.classList.remove('visible');
         }
       }
     }
