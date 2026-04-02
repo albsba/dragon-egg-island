@@ -1479,9 +1479,13 @@
       const x = CANVAS_W - 10;
       let y = 50;
 
+      // Semi-transparent background panel for readability
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.fillRect(CANVAS_W - 210, y - 12, 210, 14 + state.quests.length * 12 + 4);
+
       ctx.textAlign = 'right';
       ctx.font = '9px monospace';
-      ctx.fillStyle = '#888';
+      ctx.fillStyle = '#FFD700';
       ctx.fillText('Quests (' + state.stars + ' \u2605)', x, y);
       y += 14;
 
@@ -1490,7 +1494,7 @@
           ctx.fillStyle = '#FFD700';
           ctx.fillText('\u2605 ' + q.text, x, y);
         } else {
-          ctx.fillStyle = '#aaa';
+          ctx.fillStyle = '#ccc';
           ctx.fillText('\u25CB ' + q.text, x, y);
         }
         y += 12;
@@ -1502,12 +1506,30 @@
         const t = state.questComplete.timer;
         if (t > 0) {
           ctx.globalAlpha = Math.min(1, t);
+
+          // Animated background flash
+          const flashAlpha = Math.min(0.3, t * 0.15);
+          ctx.fillStyle = 'rgba(255, 215, 0, ' + flashAlpha + ')';
+          ctx.fillRect(0, CANVAS_H / 2 - 55, CANVAS_W, 50);
+
           ctx.fillStyle = '#FFD700';
           ctx.font = 'bold 16px monospace';
           ctx.textAlign = 'center';
           ctx.fillText('Quest Complete!', CANVAS_W / 2, CANVAS_H / 2 - 40);
           ctx.font = '12px monospace';
+          ctx.fillStyle = '#fff';
           ctx.fillText(state.questComplete.text, CANVAS_W / 2, CANVAS_H / 2 - 20);
+
+          // Sparkle particles around the text
+          for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2 + state.time * 3;
+            const radius = 60 + Math.sin(state.time * 5 + i) * 10;
+            const sx = CANVAS_W / 2 + Math.cos(angle) * radius;
+            const sy = CANVAS_H / 2 - 30 + Math.sin(angle) * 15;
+            ctx.fillStyle = 'rgba(255, 255, 100, ' + Math.min(1, t) + ')';
+            ctx.fillRect(sx - 2, sy - 2, 4, 4);
+          }
+
           ctx.globalAlpha = 1;
         } else {
           state.questComplete = null;
