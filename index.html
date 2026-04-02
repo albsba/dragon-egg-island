@@ -870,11 +870,11 @@
     const ZONES = {
       meadow: { map: ZONE_FLOWER_MEADOW, name: 'Flower Meadow', eggs: ['fire', 'nature', 'thorn'] },
       heart:  { map: ZONE_HEART_FOREST,  name: 'Heart Forest',  eggs: ['love'] },
-      enchanted: { map: ZONE_ENCHANTED_FOREST, name: 'Enchanted Forest', eggs: ['nature', 'shadow', 'ghost', 'thorn'] },
-      crystal: { map: ZONE_CRYSTAL_CAVE, name: 'Crystal Cave', eggs: ['star', 'ice', 'ghost'] },
-      snowy: { map: ZONE_SNOWY_MOUNTAIN, name: 'Snowy Mountain', eggs: ['ice', 'star'] },
-      volcano: { map: ZONE_VOLCANO_RIDGE, name: 'Volcano Ridge', eggs: ['fire', 'shadow'] },
-      rainbow: { map: ZONE_RAINBOW_FALLS, name: 'Rainbow Falls', eggs: ['rainbow'] },
+      enchanted: { map: ZONE_ENCHANTED_FOREST, name: 'Enchanted Forest', eggs: ['nature', 'shadow', 'ghost', 'thorn', 'cosmic'] },
+      crystal: { map: ZONE_CRYSTAL_CAVE, name: 'Crystal Cave', eggs: ['star', 'ice', 'ghost', 'crystal_dragon'] },
+      snowy: { map: ZONE_SNOWY_MOUNTAIN, name: 'Snowy Mountain', eggs: ['ice', 'star', 'storm'] },
+      volcano: { map: ZONE_VOLCANO_RIDGE, name: 'Volcano Ridge', eggs: ['fire', 'shadow', 'storm'] },
+      rainbow: { map: ZONE_RAINBOW_FALLS, name: 'Rainbow Falls', eggs: ['rainbow', 'cosmic'] },
     };
 
     const ZONE_CONNECTIONS = [
@@ -1145,6 +1145,9 @@
       ghost:  makeEggSprite('#B0BEC5', '#90A4AE', '#ECEFF1'),
       thorn:  makeEggSprite('#558B2F', '#33691E', '#8BC34A'),
       rainbow: makeEggSprite('#FF6B6B', '#4ECDC4', '#FFE66D'),
+      storm: makeEggSprite('#FFEB3B', '#FFC107', '#FFF9C4'),
+      crystal_dragon: makeEggSprite('#E1BEE7', '#CE93D8', '#F3E5F5'),
+      cosmic: makeEggSprite('#311B92', '#1A237E', '#7C4DFF'),
     };
 
     function makeDragonSprite(body, belly, eye) {
@@ -1170,6 +1173,9 @@
       ghost:   makeDragonSprite('#B0BEC5', '#ECEFF1', '#CFD8DC'),
       thorn:   makeDragonSprite('#33691E', '#8BC34A', '#333'),
       rainbow: makeDragonSprite('#FF6B6B', '#FFE66D', '#333'),
+      storm: makeDragonSprite('#1565C0', '#FFEB3B', '#FFF'),
+      crystal_dragon: makeDragonSprite('#CE93D8', '#F3E5F5', '#333'),
+      cosmic: makeDragonSprite('#1A237E', '#7C4DFF', '#E8EAF6'),
     };
 
     // ============================================================
@@ -1521,30 +1527,32 @@
         ctx.fillText(ZONES[state.currentZone].name, 10, 20);
       }
 
-      // Dragon collection icons (9 types: fire, nature, love, shadow, star, ice, ghost, thorn, rainbow)
-      const allTypes = ['fire', 'nature', 'love', 'shadow', 'star', 'ice', 'ghost', 'thorn', 'rainbow'];
+      // Dragon collection icons (12 types in 2 rows)
+      const allTypes = ['fire', 'nature', 'love', 'shadow', 'star', 'ice', 'ghost', 'thorn', 'rainbow', 'storm', 'crystal_dragon', 'cosmic'];
       const startX = 10;
-      const y = 34;
-      const iconSpacing = 70; // tighter spacing to fit 9 types
+      const iconSpacing = 55; // tighter spacing to fit 12 types in 2 rows of 6
 
       for (let i = 0; i < allTypes.length; i++) {
         const type = allTypes[i];
         const count = state.collection[type] || 0;
-        const x = startX + i * iconSpacing;
+        const col = i % 6;
+        const row = Math.floor(i / 6);
+        const x = startX + col * iconSpacing;
+        const y = 24 + row * 22;
 
         if (count > 0) {
           drawSprite(DRAGON_SPRITES[type], x, y - 6, 20);
           ctx.fillStyle = '#fff';
-          ctx.font = '12px monospace';
+          ctx.font = '10px monospace';
           ctx.textAlign = 'left';
-          ctx.fillText('x' + count, x + 24, y + 8);
+          ctx.fillText('x' + count, x + 22, y + 6);
         } else {
           ctx.fillStyle = '#444';
-          ctx.fillRect(x, y - 4, 16, 16);
+          ctx.fillRect(x, y - 4, 14, 14);
           ctx.fillStyle = '#555';
-          ctx.font = '12px monospace';
+          ctx.font = '10px monospace';
           ctx.textAlign = 'left';
-          ctx.fillText('?', x + 4, y + 8);
+          ctx.fillText('?', x + 3, y + 6);
         }
       }
 
@@ -2641,8 +2649,8 @@
 
       const totalCollected = Object.values(state.collection).reduce((a, b) => a + b, 0);
 
-      // Count unique non-rainbow types collected (need all 8 for rainbow zone)
-      const nonRainbowTypes = ['fire', 'nature', 'love', 'shadow', 'star', 'ice', 'ghost', 'thorn'];
+      // Count unique non-rainbow types collected (need all 11 for rainbow zone)
+      const nonRainbowTypes = ['fire', 'nature', 'love', 'shadow', 'star', 'ice', 'ghost', 'thorn', 'storm', 'crystal_dragon', 'cosmic'];
       const uniqueTypesCollected = nonRainbowTypes.filter(t => (state.collection[t] || 0) > 0).length;
 
       const unlockThresholds = [
@@ -2651,7 +2659,7 @@
         { zone: 'crystal', count: 12 },
         { zone: 'snowy', count: 16 },
         { zone: 'volcano', count: 20 },
-        { zone: 'rainbow', count: 25, uniqueTypes: 8 },
+        { zone: 'rainbow', count: 25, uniqueTypes: 11 },
       ];
 
       for (const u of unlockThresholds) {
@@ -3362,6 +3370,9 @@
       ghost:   { name: 'Ghost Dragon',   color: '#B0BEC5', shotSpeed: 450, shotRate: 5, shotType: 'phase',   superName: 'Phantom Blast' },
       thorn:   { name: 'Thorn Dragon',   color: '#558B2F', shotSpeed: 350, shotRate: 3, shotType: 'thorn',   superName: 'Thorn Storm' },
       rainbow: { name: 'Rainbow Dragon', color: '#FF6B6B', shotSpeed: 350, shotRate: 6, shotType: 'beam',    superName: 'Rainbow Wave' },
+      storm: { name: 'Storm Dragon', color: '#1565C0', shotSpeed: 380, shotRate: 3, shotType: 'chain', superName: 'Thunder Storm' },
+      crystal_dragon: { name: 'Crystal Dragon', color: '#CE93D8', shotSpeed: 300, shotRate: 2.5, shotType: 'shield_shot', superName: 'Crystal Barrier' },
+      cosmic: { name: 'Cosmic Dragon', color: '#1A237E', shotSpeed: 350, shotRate: 3.5, shotType: 'gravity', superName: 'Black Hole' },
     };
 
     const ENEMY_TYPES = {
@@ -4342,6 +4353,7 @@
 
       state.battle.friendBeam = 0;
       state.battle.bonusEnemyCooldown = 0;
+      state.battle.shieldZones = [];
       for (let i = 0; i < 2; i++) {
         state.battle.battlePlayers[i].hearts = MAX_HEARTS;
         state.battle.battlePlayers[i].superMeter = 0;
@@ -4547,6 +4559,15 @@
         case 'thorn':
           shots.push({ ...{ x, y, vx: (Math.random() - 0.5) * 20, vy: -spd, color: col, owner: playerId, giant: g }, pierce: false, thorn: true });
           break;
+        case 'chain':
+          shots.push({ x, y, vx: 0, vy: -spd, color: col, owner: playerId, giant: g, pierce: false, chain: true });
+          break;
+        case 'shield_shot':
+          shots.push({ x, y, vx: 0, vy: -spd, color: col, owner: playerId, giant: g, pierce: false, shieldShot: true });
+          break;
+        case 'gravity':
+          shots.push({ x, y, vx: 0, vy: -spd, color: col, owner: playerId, giant: g, pierce: false, gravity: true });
+          break;
       }
     }
 
@@ -4569,6 +4590,32 @@
           if (s.x < 4 || s.x > CANVAS_W - 4) {
             s.vx = -s.vx;
             s.bounces--;
+          }
+        }
+
+        // Gravity shots pull nearby enemies toward them
+        if (s.gravity && !s.isEnemy) {
+          for (const ge of state.battle.enemies) {
+            if (ge.curing) continue;
+            const gdx = s.x - ge.x;
+            const gdy = s.y - ge.y;
+            const gdist = Math.sqrt(gdx*gdx + gdy*gdy);
+            if (gdist < 60 && gdist > 5) {
+              ge.x += (gdx / gdist) * 30 * shotDt;
+              ge.y += (gdy / gdist) * 30 * shotDt;
+            }
+          }
+        }
+
+        // Crystal barrier blocks enemy shots crossing y=300
+        if (s.isEnemy) {
+          const cb = state.battle.superActive.find(sa => sa && sa.type === 'crystalBarrier');
+          if (cb) {
+            const prevY = s.y - s.vy * shotDt;
+            if ((prevY < cb.y && s.y >= cb.y) || (prevY > cb.y && s.y <= cb.y)) {
+              shots.splice(i, 1);
+              continue;
+            }
           }
         }
 
@@ -5012,6 +5059,21 @@
           }
         }
 
+        // Black hole: pull all enemies toward center, damage at center
+        const bh = state.battle.superActive.find(sa => sa && sa.type === 'blackHole');
+        if (bh && !e.curing) {
+          const bhdx = bh.x - e.x;
+          const bhdy = bh.y - e.y;
+          const bhdist = Math.sqrt(bhdx*bhdx + bhdy*bhdy);
+          if (bhdist < 20) {
+            e.hp -= 5;
+            if (e.hp <= 0) { e.curing = true; e.cureTimer = 0; }
+          } else if (bhdist > 0) {
+            e.x += (bhdx / bhdist) * 100 * eDt;
+            e.y += (bhdy / bhdist) * 100 * eDt;
+          }
+        }
+
         // Remove if off bottom
         if (e.y > CANVAS_H + e.size) {
           enemies.splice(i, 1);
@@ -5137,8 +5199,47 @@
               break;
             }
 
+            // Chain lightning: chain to nearest other enemy within 80px
+            if (s.chain && !e.curing) {
+              let nearest = null, nearDist = Infinity;
+              for (const e2 of state.battle.enemies) {
+                if (e2 === e || e2.curing) continue;
+                const cd = Math.sqrt((e2.x - e.x)**2 + (e2.y - e.y)**2);
+                if (cd < 80 && cd < nearDist) { nearest = e2; nearDist = cd; }
+              }
+              if (nearest) {
+                nearest.hp--;
+                if (nearest.hp <= 0) { nearest.curing = true; nearest.cureTimer = 0; }
+                state.battle.effects.push({ type: 'chainLightning', x: e.x, y: e.y, x2: nearest.x, y2: nearest.y, timer: 0.3, maxTimer: 0.3 });
+              }
+            }
+
+            // Shield shot: create a shield zone at hit location
+            if (s.shieldShot) {
+              if (!state.battle.shieldZones) state.battle.shieldZones = [];
+              if (state.battle.shieldZones.length < 2) {
+                state.battle.shieldZones.push({ x: e.x, y: e.y, timer: 3 });
+              }
+            }
+
             if (!s.pierce) {
               shots.splice(si, 1);
+              break;
+            }
+          }
+        }
+      }
+
+      // Shield zones block enemy shots
+      if (state.battle.shieldZones && state.battle.shieldZones.length > 0) {
+        for (let si = shots.length - 1; si >= 0; si--) {
+          const s = shots[si];
+          if (!s.isEnemy) continue;
+          let blocked = false;
+          for (const zone of state.battle.shieldZones) {
+            if (Math.sqrt((s.x - zone.x)**2 + (s.y - zone.y)**2) < 40) {
+              shots.splice(si, 1);
+              blocked = true;
               break;
             }
           }
@@ -5491,6 +5592,67 @@
           ctx.arc(s.x - s.x + 0, s.y - s.y + 0, ts * 0.3, 0, Math.PI * 2);
           ctx.fill();
           ctx.restore();
+        } else if (s.chain) {
+          // Storm chain shot: yellow/blue crackling bolt
+          ctx.save();
+          ctx.translate(s.x, s.y);
+          const cs = 5 * gMult;
+          // Blue outer glow
+          ctx.globalAlpha = 0.4;
+          ctx.fillStyle = '#1565C0';
+          ctx.beginPath();
+          ctx.arc(0, 0, cs + 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          // Yellow core
+          ctx.fillStyle = '#FFEB3B';
+          ctx.beginPath();
+          ctx.arc(0, 0, cs * 0.6, 0, Math.PI * 2);
+          ctx.fill();
+          // Small jagged spark lines
+          ctx.strokeStyle = '#FFF';
+          ctx.lineWidth = 1;
+          for (let sp = 0; sp < 4; sp++) {
+            const a = (sp / 4) * Math.PI * 2 + state.time * 10;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(a) * cs * 1.5, Math.sin(a) * cs * 1.5);
+            ctx.stroke();
+          }
+          ctx.restore();
+        } else if (s.shieldShot) {
+          // Crystal dragon shot: pink/purple diamond
+          ctx.save();
+          ctx.translate(s.x, s.y);
+          const ks = 6 * gMult;
+          ctx.fillStyle = '#CE93D8';
+          ctx.beginPath();
+          ctx.moveTo(0, -ks);
+          ctx.lineTo(ks * 0.5, 0);
+          ctx.lineTo(0, ks);
+          ctx.lineTo(-ks * 0.5, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = '#F3E5F5';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.restore();
+        } else if (s.gravity) {
+          // Cosmic gravity shot: dark purple circle with aura
+          ctx.globalAlpha = 0.25;
+          ctx.fillStyle = '#7C4DFF';
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, 10 * gMult, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = '#1A237E';
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, 5 * gMult, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#7C4DFF';
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, 2 * gMult, 0, Math.PI * 2);
+          ctx.fill();
         } else if (s.beam) {
           ctx.fillStyle = s.color;
           ctx.fillRect(s.x - 2 * gMult, s.y - 8 * gMult, 4 * gMult, 16 * gMult);
@@ -6748,6 +6910,182 @@
             ctx.globalAlpha = 1;
             break;
           }
+
+          case 'chainLightning': {
+            // Jagged lightning arc between two points
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = '#FFEB3B';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            const clSegs = 8;
+            ctx.moveTo(e.x, e.y);
+            for (let cl = 1; cl < clSegs; cl++) {
+              const t = cl / clSegs;
+              const mx = e.x + (e.x2 - e.x) * t + (Math.random() - 0.5) * 20;
+              const my = e.y + (e.y2 - e.y) * t + (Math.random() - 0.5) * 20;
+              ctx.lineTo(mx, my);
+            }
+            ctx.lineTo(e.x2, e.y2);
+            ctx.stroke();
+            ctx.strokeStyle = '#FFF';
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = alpha * 0.7;
+            ctx.stroke();
+            ctx.restore();
+            break;
+          }
+
+          case 'lightningStrike': {
+            // Vertical bolt from top of screen down to strike point
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            const lsSegs = 10;
+            ctx.strokeStyle = '#FFEB3B';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(e.x, 0);
+            for (let ls = 1; ls < lsSegs; ls++) {
+              const t = ls / lsSegs;
+              const lx = e.x + (Math.random() - 0.5) * 25;
+              const ly = e.y * t;
+              ctx.lineTo(lx, ly);
+            }
+            ctx.lineTo(e.x, e.y);
+            ctx.stroke();
+            ctx.strokeStyle = '#FFF';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            // Impact flash
+            ctx.globalAlpha = alpha * 0.8;
+            ctx.fillStyle = '#FFEB3B';
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, 12 * alpha, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            break;
+          }
+
+          case 'thunderFlash': {
+            // White screen flash
+            ctx.globalAlpha = alpha * 0.6;
+            ctx.fillStyle = '#FFF';
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+            ctx.globalAlpha = 1;
+            break;
+          }
+
+          case 'crystalBarrierForm': {
+            // Crystal diamonds forming along horizontal line
+            for (let cd = 0; cd < 16; cd++) {
+              const cx = (cd / 16) * CANVAS_W + (CANVAS_W / 32);
+              const cdProgress = Math.max(0, progress * 2 - (cd / 16));
+              if (cdProgress <= 0) continue;
+              ctx.save();
+              ctx.translate(cx, e.y);
+              ctx.globalAlpha = Math.min(1, cdProgress) * alpha;
+              const ds = 8 * Math.min(1, cdProgress);
+              ctx.fillStyle = '#CE93D8';
+              ctx.beginPath();
+              ctx.moveTo(0, -ds);
+              ctx.lineTo(ds * 0.5, 0);
+              ctx.lineTo(0, ds);
+              ctx.lineTo(-ds * 0.5, 0);
+              ctx.closePath();
+              ctx.fill();
+              ctx.strokeStyle = '#F3E5F5';
+              ctx.lineWidth = 1;
+              ctx.stroke();
+              ctx.restore();
+            }
+            break;
+          }
+
+          case 'blackHoleForm': {
+            // Growing spinning dark vortex
+            const bhRadius = 20 + progress * 30;
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            // Dark center
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, bhRadius * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+            // Purple spiral arcs
+            for (let br = 0; br < 5; br++) {
+              const bAngle = state.time * (3 + br) + br * 1.2;
+              const bRadius = bhRadius * 0.6 + br * bhRadius * 0.15;
+              ctx.strokeStyle = `rgba(124, 77, 255, ${(0.5 - br * 0.08) * alpha})`;
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.arc(e.x, e.y, bRadius, bAngle, bAngle + Math.PI * 1.2);
+              ctx.stroke();
+            }
+            // Particle sucking in effect
+            for (let bp2 = 0; bp2 < 12; bp2++) {
+              const seed = bp2 * 137.5;
+              const angle = seed + state.time * 2;
+              const dist = bhRadius * 1.5 * (1 - (progress * 0.5 + (bp2 % 3) * 0.15));
+              const px2 = e.x + Math.cos(angle) * dist;
+              const py2 = e.y + Math.sin(angle) * dist;
+              ctx.globalAlpha = alpha * 0.7;
+              ctx.fillStyle = bp2 % 2 === 0 ? '#7C4DFF' : '#E8EAF6';
+              ctx.beginPath();
+              ctx.arc(px2, py2, 2, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.restore();
+            break;
+          }
+        }
+      }
+
+      // Draw active shield zones
+      if (state.battle.shieldZones) {
+        for (const zone of state.battle.shieldZones) {
+          const zAlpha = Math.min(1, zone.timer);
+          ctx.globalAlpha = zAlpha * 0.35;
+          ctx.fillStyle = '#CE93D8';
+          ctx.beginPath();
+          ctx.arc(zone.x, zone.y, 40, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = zAlpha * 0.7;
+          ctx.strokeStyle = '#F3E5F5';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(zone.x, zone.y, 40, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // Draw active crystal barrier
+      const cbActive = state.battle.superActive.find(sa => sa && sa.type === 'crystalBarrier');
+      if (cbActive) {
+        ctx.fillStyle = 'rgba(206, 147, 216, 0.3)';
+        ctx.fillRect(0, cbActive.y - 3, CANVAS_W, 6);
+        for (let sci = 0; sci < 10; sci++) {
+          const sx = (sci / 10) * CANVAS_W + Math.sin(state.time * 3 + sci) * 10;
+          ctx.fillStyle = 'rgba(243, 229, 245, 0.6)';
+          ctx.fillRect(sx - 2, cbActive.y - 2, 4, 4);
+        }
+      }
+
+      // Draw active black hole
+      const bhActive = state.battle.superActive.find(sa => sa && sa.type === 'blackHole');
+      if (bhActive) {
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(bhActive.x, bhActive.y, 20, 0, Math.PI * 2);
+        ctx.fill();
+        for (let br = 0; br < 5; br++) {
+          const bAngle = state.time * (3 + br) + br * 1.2;
+          const bRadius = 25 + br * 12;
+          ctx.strokeStyle = `rgba(124, 77, 255, ${0.5 - br * 0.08})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(bhActive.x, bhActive.y, bRadius, bAngle, bAngle + Math.PI * 1.2);
+          ctx.stroke();
         }
       }
 
@@ -7066,6 +7404,37 @@
           triggerScreenShake(6, 0.4);
           break;
         }
+        case 'storm': {
+          // Thunder Storm: 8 random lightning strikes
+          for (let si = 0; si < 8; si++) {
+            const tx = 50 + Math.random() * (CANVAS_W - 100);
+            const ty = 50 + Math.random() * (CANVAS_H - 150);
+            for (const e of enemies) {
+              if (e.curing) continue;
+              if (Math.abs(e.x - tx) < 40 && Math.abs(e.y - ty) < 40) {
+                e.hp -= 3;
+                if (e.hp <= 0) { e.curing = true; e.cureTimer = 0; }
+                break;
+              }
+            }
+            state.battle.effects.push({ type: 'lightningStrike', x: tx, y: ty, timer: 0.4, maxTimer: 0.4 });
+          }
+          triggerScreenShake(8, 0.5);
+          state.battle.effects.push({ type: 'thunderFlash', x: 0, y: 0, timer: 0.3, maxTimer: 0.3 });
+          break;
+        }
+        case 'crystal_dragon': {
+          // Crystal Barrier: horizontal wall blocking enemy shots
+          state.battle.superActive[playerIdx] = { type: 'crystalBarrier', timer: 5, y: 300 };
+          state.battle.effects.push({ type: 'crystalBarrierForm', x: CANVAS_W / 2, y: 300, timer: 1.5, maxTimer: 1.5 });
+          break;
+        }
+        case 'cosmic': {
+          // Black Hole: pulls all enemies to center for 4 seconds
+          state.battle.superActive[playerIdx] = { type: 'blackHole', timer: 4, x: CANVAS_W / 2, y: CANVAS_H / 2 };
+          state.battle.effects.push({ type: 'blackHoleForm', x: CANVAS_W / 2, y: CANVAS_H / 2, timer: 4.0, maxTimer: 4.0 });
+          break;
+        }
       }
     }
 
@@ -7076,6 +7445,15 @@
           sa.timer -= dt;
           if (sa.timer <= 0) {
             state.battle.superActive[i] = null;
+          }
+        }
+      }
+      // Shield zones timer
+      if (state.battle.shieldZones) {
+        for (let i = state.battle.shieldZones.length - 1; i >= 0; i--) {
+          state.battle.shieldZones[i].timer -= dt;
+          if (state.battle.shieldZones[i].timer <= 0) {
+            state.battle.shieldZones.splice(i, 1);
           }
         }
       }
