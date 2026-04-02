@@ -2220,7 +2220,11 @@
         ue: state.unlockEffect ? { tm: Math.round(state.unlockEffect.timer * 100) / 100, zone: state.unlockEffect.zone } : null,
         m: state.mode,
         t: Math.round(state.time * 10) / 10,
-        started: true
+        started: true,
+        isr: state.inSecretRoom || false,
+        srz: state.secretRoomZone || null,
+        srf: state.secretRoomFound || {},
+        spa: state.secretPathActive || {},
       };
 
       // Include screen so guest knows what mode we're in
@@ -2350,6 +2354,22 @@
       }
       if (gs.m) state.mode = gs.m;
       if (gs.t != null) state.time = gs.t;
+
+      // Secret room sync
+      if (gs.isr !== undefined) {
+        var wasInSecret = state.inSecretRoom;
+        state.inSecretRoom = gs.isr;
+        state.secretRoomZone = gs.srz || null;
+        if (gs.srf) state.secretRoomFound = gs.srf;
+        if (gs.spa) state.secretPathActive = gs.spa;
+        // Generate room map on guest when entering secret room
+        if (gs.isr && !wasInSecret && gs.srz) {
+          state.secretRoomMap = generateSecretRoom(gs.srz);
+        }
+        if (!gs.isr) {
+          state.secretRoomMap = null;
+        }
+      }
 
       // Screen sync (battle / dragonSelect / playing)
       if (gs.scr) {
