@@ -617,12 +617,27 @@
       rainbow_rock:   '#B0BEC5',
       rainbow_flower: '#FF80AB',
       sparkle_tile:   '#FFF176',
+      // Haunted Hollow tiles
+      ghost_tree:     'rgba(100, 180, 100, 0.6)',
+      thorn_bush:     '#2E7D32',
+      phantom_grass:  '#a8d8a8',
+      spirit_light:   '#E0FFE0',
+      // Storm Peaks tiles
+      storm_rock:     '#455A64',
+      lightning_rod:  '#FFD600',
+      storm_cloud_tile: '#4A148C',
+      crystal_floor:  '#B3E5FC',
+      // Cosmic Void tiles
+      void_floor:     '#1A0033',
+      star_tile:      '#FFFFFF',
+      nebula:         '#CE93D8',
+      cosmic_rock:    '#1A1A2E',
     };
 
     const UI_ROWS = 2;
     const MAP_ROWS = ROWS - UI_ROWS; // 16 playable rows
 
-    const SOLID_TILES = ['tree_trunk', 'tree_top', 'heart_tree', 'heart_leaf', 'water', 'rock', 'dark_tree_top', 'dark_tree_trunk', 'mushroom', 'cave_wall', 'crystal', 'cave_water', 'pine_top', 'pine_trunk', 'snow_rock', 'frozen_water', 'volcanic_rock', 'lava', 'lava2', 'magma_rock', 'rainbow_rock', 'rainbow_water'];
+    const SOLID_TILES = ['tree_trunk', 'tree_top', 'heart_tree', 'heart_leaf', 'water', 'rock', 'dark_tree_top', 'dark_tree_trunk', 'mushroom', 'cave_wall', 'crystal', 'cave_water', 'pine_top', 'pine_trunk', 'snow_rock', 'frozen_water', 'volcanic_rock', 'lava', 'lava2', 'magma_rock', 'rainbow_rock', 'rainbow_water', 'ghost_tree', 'thorn_bush', 'storm_rock', 'storm_cloud_tile', 'cosmic_rock'];
 
     // ZONE_FLOWER_MEADOW: 16 rows x 25 cols
     const ZONE_FLOWER_MEADOW = [
@@ -870,10 +885,118 @@
       ['rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass'],
       // row 13
       ['rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass'],
-      // row 14 - no path (final zone)
-      ['rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass'],
+      // row 14 - path at bottom for exit to Haunted Hollow
+      ['rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','path','path','path','path','path','path','path','path','path','rainbow_grass','rainbow_flower','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass'],
       // row 15
-      ['rainbow_rock','rainbow_rock','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_rock','rainbow_rock','rainbow_rock'],
+      ['rainbow_rock','rainbow_rock','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','sparkle_tile','path','path','path','path','path','path','path','path','path','sparkle_tile','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_grass','rainbow_rock','rainbow_rock','rainbow_rock'],
+    ];
+
+    // ZONE_HAUNTED_HOLLOW: 16 rows x 25 cols (Ghost + Thorn dragons)
+    const ZONE_HAUNTED_HOLLOW = [
+      // row 0 - path at top
+      ['ghost_tree','ghost_tree','phantom_grass','phantom_grass','path','path','path','path','path','path','path','path','path','path','path','path','path','phantom_grass','phantom_grass','phantom_grass','ghost_tree','ghost_tree','phantom_grass','ghost_tree','ghost_tree'],
+      // row 1
+      ['ghost_tree','phantom_grass','phantom_grass','phantom_grass','path','path','path','path','path','path','path','path','path','path','path','path','path','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','ghost_tree'],
+      // row 2
+      ['phantom_grass','phantom_grass','spirit_light','phantom_grass','phantom_grass','phantom_grass','thorn_bush','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','thorn_bush','phantom_grass','phantom_grass','spirit_light','phantom_grass','phantom_grass','phantom_grass'],
+      // row 3
+      ['phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','ghost_tree','phantom_grass','phantom_grass','phantom_grass','ghost_tree','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass'],
+      // row 4
+      ['phantom_grass','thorn_bush','phantom_grass','phantom_grass','phantom_grass','spirit_light','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','spirit_light','phantom_grass','phantom_grass','phantom_grass','thorn_bush','phantom_grass','phantom_grass','phantom_grass'],
+      // row 5
+      ['phantom_grass','phantom_grass','phantom_grass','ghost_tree','phantom_grass','phantom_grass','phantom_grass','phantom_grass','thorn_bush','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','thorn_bush','phantom_grass','phantom_grass','phantom_grass','phantom_grass','ghost_tree','phantom_grass','phantom_grass','phantom_grass','spirit_light','phantom_grass'],
+      // row 6
+      ['phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','spirit_light','phantom_grass','phantom_grass','spirit_light','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass'],
+      // row 7
+      ['phantom_grass','spirit_light','phantom_grass','phantom_grass','phantom_grass','thorn_bush','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','thorn_bush','phantom_grass','phantom_grass','spirit_light','phantom_grass','phantom_grass','phantom_grass'],
+      // row 8
+      ['phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','ghost_tree','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','ghost_tree','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass'],
+      // row 9
+      ['phantom_grass','phantom_grass','thorn_bush','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','spirit_light','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','thorn_bush','phantom_grass','phantom_grass','phantom_grass','phantom_grass'],
+      // row 10
+      ['phantom_grass','phantom_grass','phantom_grass','phantom_grass','spirit_light','phantom_grass','phantom_grass','phantom_grass','phantom_grass','thorn_bush','phantom_grass','phantom_grass','phantom_grass','thorn_bush','phantom_grass','phantom_grass','phantom_grass','phantom_grass','spirit_light','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass'],
+      // row 11
+      ['phantom_grass','ghost_tree','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','spirit_light','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','spirit_light','phantom_grass','phantom_grass','phantom_grass','phantom_grass','ghost_tree','phantom_grass','phantom_grass','phantom_grass','phantom_grass'],
+      // row 12
+      ['phantom_grass','phantom_grass','phantom_grass','thorn_bush','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','thorn_bush','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass'],
+      // row 13
+      ['phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass'],
+      // row 14 - path at bottom
+      ['ghost_tree','ghost_tree','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','path','path','path','path','path','path','path','path','path','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','ghost_tree','ghost_tree'],
+      // row 15
+      ['ghost_tree','ghost_tree','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','path','path','path','path','path','path','path','path','path','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','phantom_grass','ghost_tree','ghost_tree'],
+    ];
+
+    // ZONE_STORM_PEAKS: 16 rows x 25 cols (Storm + Crystal dragons)
+    const ZONE_STORM_PEAKS = [
+      // row 0 - path at top
+      ['storm_rock','storm_rock','crystal_floor','crystal_floor','path','path','path','path','path','path','path','path','path','path','path','path','path','crystal_floor','crystal_floor','crystal_floor','storm_rock','storm_rock','crystal_floor','storm_rock','storm_rock'],
+      // row 1
+      ['storm_rock','crystal_floor','crystal_floor','crystal_floor','path','path','path','path','path','path','path','path','path','path','path','path','path','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','storm_rock'],
+      // row 2
+      ['crystal_floor','crystal_floor','lightning_rod','crystal_floor','crystal_floor','crystal_floor','storm_rock','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','storm_rock','crystal_floor','crystal_floor','lightning_rod','crystal_floor','crystal_floor','crystal_floor'],
+      // row 3
+      ['crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','storm_cloud_tile','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','storm_cloud_tile','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor'],
+      // row 4
+      ['crystal_floor','storm_rock','crystal_floor','crystal_floor','crystal_floor','lightning_rod','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','storm_cloud_tile','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','lightning_rod','crystal_floor','crystal_floor','crystal_floor','storm_rock','crystal_floor','crystal_floor','crystal_floor'],
+      // row 5
+      ['crystal_floor','crystal_floor','crystal_floor','storm_rock','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','storm_rock','crystal_floor','crystal_floor','crystal_floor','lightning_rod','crystal_floor'],
+      // row 6
+      ['crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','storm_cloud_tile','crystal_floor','crystal_floor','storm_rock','crystal_floor','crystal_floor','crystal_floor','storm_rock','crystal_floor','crystal_floor','storm_cloud_tile','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor'],
+      // row 7
+      ['crystal_floor','lightning_rod','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','lightning_rod','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','lightning_rod','crystal_floor','crystal_floor','crystal_floor'],
+      // row 8
+      ['crystal_floor','crystal_floor','crystal_floor','crystal_floor','storm_cloud_tile','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','storm_cloud_tile','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor'],
+      // row 9
+      ['crystal_floor','crystal_floor','storm_rock','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','lightning_rod','crystal_floor','crystal_floor','crystal_floor','lightning_rod','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','storm_rock','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor'],
+      // row 10
+      ['crystal_floor','crystal_floor','crystal_floor','crystal_floor','lightning_rod','crystal_floor','crystal_floor','storm_rock','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','storm_rock','crystal_floor','crystal_floor','lightning_rod','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor'],
+      // row 11
+      ['crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','storm_cloud_tile','crystal_floor','crystal_floor','storm_cloud_tile','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor'],
+      // row 12
+      ['crystal_floor','crystal_floor','crystal_floor','storm_rock','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','storm_rock','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor'],
+      // row 13
+      ['crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','lightning_rod','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','lightning_rod','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor'],
+      // row 14 - path at bottom
+      ['storm_rock','storm_rock','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','path','path','path','path','path','path','path','path','path','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','storm_rock','storm_rock'],
+      // row 15
+      ['storm_rock','storm_rock','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','path','path','path','path','path','path','path','path','path','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','crystal_floor','storm_rock','storm_rock'],
+    ];
+
+    // ZONE_COSMIC_VOID: 16 rows x 25 cols (Cosmic + Rainbow dragons)
+    const ZONE_COSMIC_VOID = [
+      // row 0 - path at top
+      ['cosmic_rock','cosmic_rock','void_floor','void_floor','path','path','path','path','path','path','path','path','path','path','path','path','path','void_floor','void_floor','void_floor','cosmic_rock','cosmic_rock','void_floor','cosmic_rock','cosmic_rock'],
+      // row 1
+      ['cosmic_rock','void_floor','void_floor','void_floor','path','path','path','path','path','path','path','path','path','path','path','path','path','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','cosmic_rock'],
+      // row 2
+      ['void_floor','void_floor','star_tile','void_floor','void_floor','void_floor','nebula','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','nebula','void_floor','void_floor','star_tile','void_floor','void_floor','void_floor'],
+      // row 3
+      ['void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','cosmic_rock','void_floor','star_tile','void_floor','cosmic_rock','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor'],
+      // row 4
+      ['void_floor','nebula','void_floor','void_floor','void_floor','star_tile','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','star_tile','void_floor','void_floor','void_floor','nebula','void_floor','void_floor','void_floor'],
+      // row 5
+      ['void_floor','void_floor','void_floor','cosmic_rock','void_floor','void_floor','void_floor','void_floor','nebula','void_floor','void_floor','void_floor','void_floor','void_floor','nebula','void_floor','void_floor','void_floor','void_floor','cosmic_rock','void_floor','void_floor','void_floor','star_tile','void_floor'],
+      // row 6
+      ['void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','star_tile','void_floor','void_floor','star_tile','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor'],
+      // row 7
+      ['void_floor','star_tile','void_floor','void_floor','void_floor','nebula','void_floor','void_floor','void_floor','void_floor','void_floor','nebula','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','nebula','void_floor','void_floor','star_tile','void_floor','void_floor','void_floor'],
+      // row 8
+      ['void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','cosmic_rock','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','cosmic_rock','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor'],
+      // row 9
+      ['void_floor','void_floor','nebula','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','star_tile','void_floor','void_floor','void_floor','star_tile','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','nebula','void_floor','void_floor','void_floor','void_floor'],
+      // row 10
+      ['void_floor','void_floor','void_floor','void_floor','star_tile','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','star_tile','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor'],
+      // row 11
+      ['void_floor','cosmic_rock','void_floor','void_floor','void_floor','void_floor','void_floor','star_tile','void_floor','void_floor','nebula','void_floor','void_floor','nebula','void_floor','star_tile','void_floor','void_floor','void_floor','void_floor','cosmic_rock','void_floor','void_floor','void_floor','void_floor'],
+      // row 12
+      ['void_floor','void_floor','void_floor','nebula','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','nebula','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor'],
+      // row 13
+      ['void_floor','void_floor','void_floor','void_floor','void_floor','star_tile','void_floor','void_floor','void_floor','void_floor','star_tile','void_floor','void_floor','star_tile','void_floor','void_floor','void_floor','star_tile','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor'],
+      // row 14 - no path (final zone)
+      ['void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','nebula','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','nebula','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor'],
+      // row 15
+      ['cosmic_rock','cosmic_rock','void_floor','void_floor','void_floor','void_floor','void_floor','star_tile','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','void_floor','star_tile','void_floor','void_floor','void_floor','void_floor','void_floor','cosmic_rock','cosmic_rock','cosmic_rock'],
     ];
 
     const ZONES = {
@@ -884,6 +1007,9 @@
       snowy: { map: ZONE_SNOWY_MOUNTAIN, name: 'Snowy Mountain', eggs: ['ice', 'star', 'storm'] },
       volcano: { map: ZONE_VOLCANO_RIDGE, name: 'Volcano Ridge', eggs: ['fire', 'shadow', 'storm'] },
       rainbow: { map: ZONE_RAINBOW_FALLS, name: 'Rainbow Falls', eggs: ['rainbow', 'cosmic'] },
+      haunted: { map: ZONE_HAUNTED_HOLLOW, name: 'Haunted Hollow', eggs: ['ghost', 'thorn'] },
+      storm: { map: ZONE_STORM_PEAKS, name: 'Storm Peaks', eggs: ['storm', 'crystal_dragon'] },
+      cosmic: { map: ZONE_COSMIC_VOID, name: 'Cosmic Void', eggs: ['cosmic', 'rainbow'] },
     };
 
     const ZONE_CONNECTIONS = [
@@ -899,6 +1025,12 @@
       { from: 'volcano', edge: 'top', to: 'snowy', unlockRequired: false },
       { from: 'volcano', edge: 'bottom', to: 'rainbow', unlockRequired: true },
       { from: 'rainbow', edge: 'top', to: 'volcano', unlockRequired: false },
+      { from: 'rainbow', edge: 'bottom', to: 'haunted', unlockRequired: true },
+      { from: 'haunted', edge: 'top', to: 'rainbow', unlockRequired: false },
+      { from: 'haunted', edge: 'bottom', to: 'storm', unlockRequired: true },
+      { from: 'storm', edge: 'top', to: 'haunted', unlockRequired: false },
+      { from: 'storm', edge: 'bottom', to: 'cosmic', unlockRequired: true },
+      { from: 'cosmic', edge: 'top', to: 'storm', unlockRequired: false },
     ];
 
     // ============================================================
@@ -910,44 +1042,62 @@
           { col: 5, row: 11, originalType: 'bush' },
           { col: 19, row: 3, originalType: 'bush' },
         ],
-        room: { name: 'Secret Garden', width: 10, height: 8, bg: '#2d6a1e', tiles: 'meadow_secret', eggs: ['fire', 'nature'], eggCount: 2 }
+        room: { name: 'Secret Garden', width: 16, height: 12, bg: '#2d6a1e', tiles: 'meadow_secret', eggs: ['fire', 'nature'], eggCount: 3 }
       },
       heart: {
         secretTiles: [
           { col: 10, row: 10, originalType: 'flower_p' },
         ],
-        room: { name: 'Heart Clearing', width: 10, height: 8, bg: '#8B2252', tiles: 'heart_secret', eggs: ['love'], eggCount: 2 }
+        room: { name: 'Heart Clearing', width: 16, height: 12, bg: '#8B2252', tiles: 'heart_secret', eggs: ['love'], eggCount: 3 }
       },
       enchanted: {
         secretTiles: [
           { col: 7, row: 7, originalType: 'mushroom' },
           { col: 17, row: 10, originalType: 'dark_tree_trunk' },
         ],
-        room: { name: 'Fairy Circle', width: 10, height: 8, bg: '#1a3a14', tiles: 'enchanted_secret', eggs: ['ghost', 'shadow'], eggCount: 2 }
+        room: { name: 'Fairy Circle', width: 16, height: 12, bg: '#1a3a14', tiles: 'enchanted_secret', eggs: ['ghost', 'shadow'], eggCount: 4 }
       },
       crystal: {
         secretTiles: [
           { col: 3, row: 6, originalType: 'crystal' },
         ],
-        room: { name: 'Gem Vault', width: 10, height: 8, bg: '#2a2a4e', tiles: 'crystal_secret', eggs: ['star', 'ice'], eggCount: 2 }
+        room: { name: 'Gem Vault', width: 16, height: 12, bg: '#2a2a4e', tiles: 'crystal_secret', eggs: ['star', 'ice'], eggCount: 3 }
       },
       snowy: {
         secretTiles: [
           { col: 21, row: 4, originalType: 'snow_rock' },
         ],
-        room: { name: 'Ice Castle', width: 10, height: 8, bg: '#c8d8e8', tiles: 'snowy_secret', eggs: ['ice'], eggCount: 2 }
+        room: { name: 'Ice Castle', width: 16, height: 12, bg: '#c8d8e8', tiles: 'snowy_secret', eggs: ['ice'], eggCount: 3 }
       },
       volcano: {
         secretTiles: [
           { col: 5, row: 11, originalType: 'magma_rock' },
         ],
-        room: { name: 'Magma Chamber', width: 10, height: 8, bg: '#3a1a0a', tiles: 'volcano_secret', eggs: ['fire', 'shadow'], eggCount: 2 }
+        room: { name: 'Magma Chamber', width: 16, height: 12, bg: '#3a1a0a', tiles: 'volcano_secret', eggs: ['fire', 'shadow'], eggCount: 4 }
       },
       rainbow: {
         secretTiles: [
           { col: 3, row: 11, originalType: 'sparkle_tile' },
         ],
-        room: { name: 'Prismatic Shrine', width: 10, height: 8, bg: '#2a4a2a', tiles: 'rainbow_secret', eggs: ['rainbow'], eggCount: 3 }
+        room: { name: 'Prismatic Shrine', width: 16, height: 12, bg: '#2a4a2a', tiles: 'rainbow_secret', eggs: ['rainbow'], eggCount: 4 }
+      },
+      haunted: {
+        secretTiles: [
+          { col: 3, row: 5, originalType: 'ghost_tree' },
+        ],
+        room: { name: 'Spirit Hollow', width: 16, height: 12, bg: '#1a3a1a', tiles: 'haunted_secret', eggs: ['ghost', 'thorn'], eggCount: 3 }
+      },
+      storm: {
+        secretTiles: [
+          { col: 5, row: 4, originalType: 'lightning_rod' },
+        ],
+        room: { name: 'Thunder Chamber', width: 16, height: 12, bg: '#263238', tiles: 'storm_secret', eggs: ['storm', 'crystal_dragon'], eggCount: 4 }
+      },
+      cosmic: {
+        secretTiles: [
+          { col: 2, row: 2, originalType: 'star_tile' },
+        ],
+        room: { name: 'Starlight Sanctum', width: 16, height: 12, bg: '#0a0020', tiles: 'cosmic_secret', eggs: ['cosmic', 'rainbow'], eggCount: 4 }
       },
     };
 
@@ -961,30 +1111,55 @@
 
       const wallTile = {
         meadow: 'bush', heart: 'heart_leaf', enchanted: 'dark_tree_top',
-        crystal: 'cave_wall', snowy: 'snow_rock', volcano: 'volcanic_rock', rainbow: 'rainbow_rock'
-      }[zoneKey];
+        crystal: 'cave_wall', snowy: 'snow_rock', volcano: 'volcanic_rock', rainbow: 'rainbow_rock',
+        haunted: 'ghost_tree', storm: 'storm_rock', cosmic: 'cosmic_rock'
+      }[zoneKey] || 'rock';
 
       const floorTile = {
         meadow: 'grass', heart: 'grass', enchanted: 'moss',
-        crystal: 'cave_floor', snowy: 'snow', volcano: 'ash', rainbow: 'rainbow_grass'
-      }[zoneKey];
+        crystal: 'cave_floor', snowy: 'snow', volcano: 'ash', rainbow: 'rainbow_grass',
+        haunted: 'phantom_grass', storm: 'crystal_floor', cosmic: 'void_floor'
+      }[zoneKey] || 'grass';
 
       const decorTile = {
         meadow: 'flower_y', heart: 'flower_p', enchanted: 'mushroom',
-        crystal: 'gem_blue', snowy: 'snow2', volcano: 'ember', rainbow: 'sparkle_tile'
-      }[zoneKey];
+        crystal: 'gem_blue', snowy: 'snow2', volcano: 'ember', rainbow: 'sparkle_tile',
+        haunted: 'spirit_light', storm: 'lightning_rod', cosmic: 'star_tile'
+      }[zoneKey] || 'flower_y';
+
+      const decorTile2 = {
+        meadow: 'flower_r', heart: 'flower_r', enchanted: 'flower_p',
+        crystal: 'gem_pink', snowy: 'ice_tile', volcano: 'lava', rainbow: 'rainbow_flower',
+        haunted: 'thorn_bush', storm: 'storm_cloud_tile', cosmic: 'nebula'
+      }[zoneKey] || 'flower_r';
+
+      // Exit path at bottom center
+      const exitLeft = Math.floor(w / 2) - 1;
+      const exitRight = Math.floor(w / 2);
 
       for (let r = 0; r < h; r++) {
         const row = [];
         for (let c = 0; c < w; c++) {
           if (r === 0 || r === h - 1 || c === 0 || c === w - 1) {
-            if (r === h - 1 && c >= 4 && c <= 5) {
+            // Wall tiles, with exit path at bottom center
+            if (r === h - 1 && c >= exitLeft && c <= exitRight) {
               row.push('path');
             } else {
               row.push(wallTile);
             }
-          } else if ((r + c) % 5 === 0) {
+          } else if (r === 2 && (c === 3 || c === w - 4)) {
+            // Decorative pillars near top corners
             row.push(decorTile);
+          } else if (r === h - 3 && (c === 3 || c === w - 4)) {
+            // Decorative pillars near bottom corners
+            row.push(decorTile);
+          } else if (r === Math.floor(h / 2) && (c === 1 || c === w - 2)) {
+            // Already wall, skip
+            row.push(floorTile);
+          } else if ((r + c) % 7 === 0) {
+            row.push(decorTile);
+          } else if ((r * 3 + c * 2) % 11 === 0) {
+            row.push(decorTile2);
           } else {
             row.push(floorTile);
           }
@@ -1440,6 +1615,134 @@
         ctx.beginPath();
         ctx.arc(x + TILE / 2, y + TILE / 2, TILE * 0.15, 0, Math.PI * 2);
         ctx.fill();
+      } else if (type === 'ghost_tree') {
+        // Translucent ghostly tree
+        ctx.fillStyle = TILE_COLORS['phantom_grass'];
+        ctx.fillRect(x, y, TILE, TILE);
+        ctx.globalAlpha = 0.5 + Math.sin(state.time * 2 + col + row) * 0.2;
+        ctx.fillStyle = '#4CAF50';
+        ctx.beginPath();
+        ctx.arc(x + TILE / 2, y + TILE * 0.35, TILE * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#5D4037';
+        ctx.fillRect(x + TILE * 0.4, y + TILE * 0.6, TILE * 0.2, TILE * 0.35);
+        ctx.globalAlpha = 1;
+      } else if (type === 'thorn_bush') {
+        // Dark green thorny bush
+        ctx.fillStyle = TILE_COLORS['phantom_grass'];
+        ctx.fillRect(x, y, TILE, TILE);
+        ctx.fillStyle = TILE_COLORS['thorn_bush'];
+        ctx.beginPath();
+        ctx.arc(x + TILE / 2, y + TILE * 0.6, TILE * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // Thorn spikes
+        ctx.fillStyle = '#1B5E20';
+        for (let s = 0; s < 4; s++) {
+          const angle = (s / 4) * Math.PI * 2 - Math.PI / 4;
+          const sx = x + TILE / 2 + Math.cos(angle) * TILE * 0.35;
+          const sy = y + TILE * 0.6 + Math.sin(angle) * TILE * 0.35;
+          ctx.fillRect(sx - 1, sy - 1, 3, 3);
+        }
+      } else if (type === 'phantom_grass') {
+        ctx.fillStyle = TILE_COLORS['phantom_grass'];
+        ctx.fillRect(x, y, TILE, TILE);
+      } else if (type === 'spirit_light') {
+        // Phantom grass bg with glowing orb that pulses brightly
+        ctx.fillStyle = TILE_COLORS['phantom_grass'];
+        ctx.fillRect(x, y, TILE, TILE);
+        const glowSize = TILE * 0.2 + Math.sin(state.time * 3 + col * 2 + row) * TILE * 0.08;
+        const glowAlpha = 0.6 + Math.sin(state.time * 4 + col + row * 2) * 0.4;
+        // Outer glow
+        ctx.fillStyle = 'rgba(200, 255, 200, ' + (glowAlpha * 0.3) + ')';
+        ctx.beginPath();
+        ctx.arc(x + TILE / 2, y + TILE / 2, glowSize * 2, 0, Math.PI * 2);
+        ctx.fill();
+        // Inner orb
+        ctx.fillStyle = 'rgba(220, 255, 220, ' + glowAlpha + ')';
+        ctx.beginPath();
+        ctx.arc(x + TILE / 2, y + TILE / 2, glowSize, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (type === 'storm_rock') {
+        ctx.fillStyle = TILE_COLORS['storm_rock'];
+        ctx.fillRect(x, y, TILE, TILE);
+        // Dark cracks
+        ctx.fillStyle = '#37474F';
+        ctx.fillRect(x + TILE * 0.2, y + TILE * 0.3, TILE * 0.15, TILE * 0.4);
+      } else if (type === 'lightning_rod') {
+        // Crystal floor bg with yellow spike that flashes
+        ctx.fillStyle = TILE_COLORS['crystal_floor'];
+        ctx.fillRect(x, y, TILE, TILE);
+        const flash = Math.sin(state.time * 6 + col * 3 + row * 7) > 0.8 ? 1 : 0;
+        ctx.fillStyle = flash ? '#FFFFFF' : TILE_COLORS['lightning_rod'];
+        // Spike shape
+        ctx.beginPath();
+        ctx.moveTo(x + TILE / 2, y + TILE * 0.1);
+        ctx.lineTo(x + TILE * 0.65, y + TILE * 0.5);
+        ctx.lineTo(x + TILE * 0.55, y + TILE * 0.5);
+        ctx.lineTo(x + TILE * 0.65, y + TILE * 0.9);
+        ctx.lineTo(x + TILE * 0.35, y + TILE * 0.5);
+        ctx.lineTo(x + TILE * 0.45, y + TILE * 0.5);
+        ctx.closePath();
+        ctx.fill();
+      } else if (type === 'storm_cloud_tile') {
+        ctx.fillStyle = TILE_COLORS['crystal_floor'];
+        ctx.fillRect(x, y, TILE, TILE);
+        ctx.fillStyle = TILE_COLORS['storm_cloud_tile'];
+        ctx.beginPath();
+        ctx.arc(x + TILE * 0.35, y + TILE * 0.5, TILE * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x + TILE * 0.55, y + TILE * 0.45, TILE * 0.22, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x + TILE * 0.7, y + TILE * 0.55, TILE * 0.18, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (type === 'crystal_floor') {
+        ctx.fillStyle = TILE_COLORS['crystal_floor'];
+        ctx.fillRect(x, y, TILE, TILE);
+        // Subtle shimmer
+        const shimmer = Math.sin(state.time * 2 + col * 0.7 + row * 0.5) * 0.1;
+        if (shimmer > 0) {
+          ctx.fillStyle = 'rgba(255, 255, 255, ' + shimmer + ')';
+          ctx.fillRect(x, y, TILE, TILE);
+        }
+      } else if (type === 'void_floor') {
+        ctx.fillStyle = TILE_COLORS['void_floor'];
+        ctx.fillRect(x, y, TILE, TILE);
+        // Occasional distant star twinkle
+        const twinkle = Math.sin(state.time * 1.5 + col * 3.7 + row * 5.3);
+        if (twinkle > 0.9) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+          ctx.fillRect(x + TILE * 0.5 - 1, y + TILE * 0.5 - 1, 2, 2);
+        }
+      } else if (type === 'star_tile') {
+        // Dark background with twinkling star
+        ctx.fillStyle = TILE_COLORS['void_floor'];
+        ctx.fillRect(x, y, TILE, TILE);
+        const twinkleAlpha = Math.sin(state.time * 3 + col * 2.1 + row * 1.7) * 0.4 + 0.6;
+        const twinkleSize = TILE * 0.1 + Math.sin(state.time * 5 + col + row) * TILE * 0.05;
+        ctx.fillStyle = 'rgba(255, 255, 255, ' + twinkleAlpha + ')';
+        // Star cross shape
+        ctx.fillRect(x + TILE / 2 - twinkleSize, y + TILE / 2 - 1, twinkleSize * 2, 2);
+        ctx.fillRect(x + TILE / 2 - 1, y + TILE / 2 - twinkleSize, 2, twinkleSize * 2);
+      } else if (type === 'nebula') {
+        // Color-cycling nebula like rainbow_water
+        ctx.fillStyle = TILE_COLORS['void_floor'];
+        ctx.fillRect(x, y, TILE, TILE);
+        const nebulaHue = ((state.time * 30) + col * 25 + row * 25) % 360;
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = 'hsl(' + nebulaHue + ', 60%, 40%)';
+        ctx.beginPath();
+        ctx.arc(x + TILE / 2, y + TILE / 2, TILE * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      } else if (type === 'cosmic_rock') {
+        ctx.fillStyle = TILE_COLORS['cosmic_rock'];
+        ctx.fillRect(x, y, TILE, TILE);
+        // Subtle purple edge
+        ctx.fillStyle = 'rgba(128, 0, 128, 0.2)';
+        ctx.fillRect(x, y, TILE, 2);
+        ctx.fillRect(x, y, 2, TILE);
       } else {
         ctx.fillStyle = color || '#000';
         ctx.fillRect(x, y, TILE, TILE);
@@ -1700,10 +2003,11 @@
           { zone: 'snowy', count: 16 },
           { zone: 'volcano', count: 20 },
           { zone: 'rainbow', count: 25 },
+          { zone: 'haunted', count: 30 },
+          { zone: 'storm', count: 35 },
+          { zone: 'cosmic', count: 40 },
         ];
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#aaa';
-        ctx.font = '11px monospace';
         let nextUnlock = null;
         for (const u of unlockOrder) {
           if (!state.unlockedZones.includes(u.zone)) {
@@ -1712,9 +2016,38 @@
           }
         }
         if (nextUnlock) {
+          const remaining = nextUnlock.count - totalCollected;
+          const closeToUnlock = remaining <= 2 && remaining > 0;
+          if (closeToUnlock) {
+            // Pulsing yellow text when close to unlocking
+            const pulse = Math.sin(state.time * 4) * 0.3 + 0.7;
+            ctx.globalAlpha = pulse;
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 15px monospace';
+          } else {
+            ctx.fillStyle = '#fff';
+            ctx.font = '13px monospace';
+          }
           ctx.fillText('Collect ' + totalCollected + '/' + nextUnlock.count + ' eggs to unlock ' + ZONES[nextUnlock.zone].name, CANVAS_W / 2, CANVAS_H - 8);
+          ctx.globalAlpha = 1;
         } else {
+          ctx.fillStyle = '#4CAF50';
+          ctx.font = 'bold 13px monospace';
           ctx.fillText('All zones unlocked! Explore everywhere!', CANVAS_W / 2, CANVAS_H - 8);
+        }
+
+        // "+1!" flash when collecting an egg
+        if (state.eggCollectFlash && state.eggCollectFlash.timer > 0) {
+          state.eggCollectFlash.timer -= 1 / 60;
+          const ft = state.eggCollectFlash.timer;
+          const fy = CANVAS_H - 8 - 18 * (1 - ft / 0.8);
+          ctx.globalAlpha = Math.min(1, ft * 2);
+          ctx.fillStyle = '#FFD700';
+          ctx.font = 'bold 16px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('+1!', CANVAS_W / 2 + 120, fy);
+          ctx.globalAlpha = 1;
+          if (ft <= 0) state.eggCollectFlash = null;
         }
       }
 
@@ -1793,8 +2126,20 @@
     function drawUnlockEffect() {
       if (!state.unlockEffect) return;
       const t = state.unlockEffect.timer;
-      const alpha = Math.max(0, 1 - t / 2);
+      const alpha = Math.max(0, 1 - t / 3);
 
+      // Sparkle particles around the announcement
+      for (let i = 0; i < 20; i++) {
+        const angle = (i / 20) * Math.PI * 2 + t * 2;
+        const radius = 80 + Math.sin(t * 3 + i) * 20;
+        const sx = CANVAS_W / 2 + Math.cos(angle) * radius;
+        const sy = CANVAS_H / 2 - 10 + Math.sin(angle) * 30;
+        const sparkAlpha = alpha * (0.5 + Math.sin(t * 8 + i) * 0.5);
+        ctx.fillStyle = `rgba(255, 215, 0, ${sparkAlpha})`;
+        ctx.fillRect(sx - 3, sy - 3, 6, 6);
+      }
+
+      // Bottom-edge sparkle trail
       for (let i = 0; i < 15; i++) {
         const x = (8 + i) * TILE + Math.sin(t * 5 + i) * 5;
         const y = (MAP_ROWS - 1 + UI_ROWS) * TILE + Math.cos(t * 4 + i * 0.5) * 10;
@@ -1802,14 +2147,21 @@
         ctx.fillRect(x - 2, y - 2, 4, 4);
       }
 
-      if (t < 1.5) {
-        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-        ctx.font = 'bold 18px monospace';
+      if (t < 2.5) {
+        // Golden background flash
+        const flashAlpha = Math.min(0.25, alpha * 0.25);
+        ctx.fillStyle = `rgba(255, 215, 0, ${flashAlpha})`;
+        ctx.fillRect(0, CANVAS_H / 2 - 40, CANVAS_W, 65);
+
+        // Big golden text
+        ctx.fillStyle = `rgba(255, 215, 0, ${alpha})`;
+        ctx.font = 'bold 24px monospace';
         ctx.textAlign = 'center';
         const unlockedName = ZONES[state.unlockEffect.zone] ? ZONES[state.unlockEffect.zone].name : 'New Zone';
-        ctx.fillText(unlockedName + ' unlocked!', CANVAS_W / 2, CANVAS_H / 2 - 20);
-        ctx.font = '13px monospace';
-        ctx.fillText('Walk to the path at the bottom!', CANVAS_W / 2, CANVAS_H / 2 + 5);
+        ctx.fillText(unlockedName + ' unlocked!', CANVAS_W / 2, CANVAS_H / 2 - 10);
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.font = '14px monospace';
+        ctx.fillText('Walk to the path at the bottom!', CANVAS_W / 2, CANVAS_H / 2 + 15);
       }
     }
 
@@ -1900,6 +2252,7 @@
     state.eggs = [];
     state.hatching = [];
     state.unlockEffect = null;
+    state.eggCollectFlash = null; // { timer, x, y } for "+1!" flash near progress text
     state.particles = [];
     state.riding = [false, false];
     state.ridingDragon = [null, null];
@@ -2684,7 +3037,7 @@
       for (let r = 2; r < MAP_ROWS - 2; r++) {
         for (let c = 2; c < COLS - 2; c++) {
           const tile = zone.map[r][c];
-          if (tile === 'grass' || tile === 'grass2' || tile === 'cave_floor' || tile === 'snow' || tile === 'snow2' || tile === 'ash' || tile === 'rainbow_grass') {
+          if (tile === 'grass' || tile === 'grass2' || tile === 'cave_floor' || tile === 'snow' || tile === 'snow2' || tile === 'ash' || tile === 'rainbow_grass' || tile === 'phantom_grass' || tile === 'crystal_floor' || tile === 'void_floor') {
             candidates.push({ x: c, y: r });
           }
         }
@@ -2758,6 +3111,7 @@
             });
             state.eggs.splice(i, 1);
             sfxCollect();
+            state.eggCollectFlash = { timer: 0.8 };
             checkQuests();
             break;
           }
@@ -2807,7 +3161,10 @@
       const activePlayers = getActivePlayers();
       for (const p of activePlayers) {
         const h = map.length;
-        if (p.y === h - 1 && p.x >= 4 && p.x <= 5) {
+        const w = map[0].length;
+        const exitLeft = Math.floor(w / 2) - 1;
+        const exitRight = Math.floor(w / 2);
+        if (p.y === h - 1 && p.x >= exitLeft && p.x <= exitRight) {
           exitSecretRoom();
           return;
         }
@@ -2822,19 +3179,29 @@
       state.secretRoomFound[zoneKey] = true;
 
       const activePlayers = getActivePlayers();
+      const roomW = secret.room.width;
+      const roomH = secret.room.height;
       for (let i = 0; i < activePlayers.length; i++) {
-        activePlayers[i].x = 4 + i;
-        activePlayers[i].y = 6;
+        activePlayers[i].x = Math.floor(roomW / 2) - 1 + i;
+        activePlayers[i].y = roomH - 3;
       }
 
       state.eggs = [];
-      const secret = SECRETS[zoneKey];
+      // Spread eggs across the larger room
+      const eggPositions = [];
+      const spacing = Math.floor((roomW - 4) / (secret.room.eggCount + 1));
+      for (let i = 0; i < secret.room.eggCount; i++) {
+        eggPositions.push({
+          x: 2 + spacing * (i + 1),
+          y: 2 + Math.floor(i % 2 === 0 ? roomH * 0.25 : roomH * 0.4),
+        });
+      }
       for (let i = 0; i < secret.room.eggCount; i++) {
         const type = secret.room.eggs[i % secret.room.eggs.length];
         state.eggs.push({
           type: type,
-          x: 3 + i * 3,
-          y: 3,
+          x: eggPositions[i].x,
+          y: eggPositions[i].y,
           bobOffset: Math.random() * Math.PI * 2,
         });
       }
@@ -2890,6 +3257,10 @@
       const nonRainbowTypes = ['fire', 'nature', 'love', 'shadow', 'star', 'ice', 'ghost', 'thorn', 'storm', 'crystal_dragon', 'cosmic'];
       const uniqueTypesCollected = nonRainbowTypes.filter(t => (state.collection[t] || 0) > 0).length;
 
+      // All dragon types including rainbow for cosmic void
+      const allTypes = ['fire', 'nature', 'love', 'shadow', 'star', 'ice', 'ghost', 'thorn', 'storm', 'crystal_dragon', 'cosmic', 'rainbow'];
+      const allTypesCollected = allTypes.filter(t => (state.collection[t] || 0) > 0).length;
+
       const unlockThresholds = [
         { zone: 'heart', count: 5 },
         { zone: 'enchanted', count: 8 },
@@ -2897,12 +3268,16 @@
         { zone: 'snowy', count: 16 },
         { zone: 'volcano', count: 20 },
         { zone: 'rainbow', count: 25, uniqueTypes: 11 },
+        { zone: 'haunted', count: 30 },
+        { zone: 'storm', count: 35 },
+        { zone: 'cosmic', count: 40, allTypes: 12 },
       ];
 
       for (const u of unlockThresholds) {
         const meetsCount = totalCollected >= u.count;
         const meetsTypes = !u.uniqueTypes || uniqueTypesCollected >= u.uniqueTypes;
-        if (meetsCount && meetsTypes && !state.unlockedZones.includes(u.zone)) {
+        const meetsAllTypes = !u.allTypes || allTypesCollected >= u.allTypes;
+        if (meetsCount && meetsTypes && meetsAllTypes && !state.unlockedZones.includes(u.zone)) {
           state.unlockedZones.push(u.zone);
           state.unlockEffect = { timer: 0, zone: u.zone };
           sfxUnlock();
@@ -2913,7 +3288,7 @@
     function updateUnlockEffect(dt) {
       if (!state.unlockEffect) return;
       state.unlockEffect.timer += dt;
-      if (state.unlockEffect.timer > 2) {
+      if (state.unlockEffect.timer > 3) {
         state.unlockEffect = null;
       }
     }
@@ -3715,7 +4090,7 @@
       state.ridingDragon = [null, null];
 
       if (mode === 'freeplay') {
-        state.unlockedZones = ['meadow', 'heart', 'enchanted', 'crystal', 'snowy', 'volcano', 'rainbow'];
+        state.unlockedZones = ['meadow', 'heart', 'enchanted', 'crystal', 'snowy', 'volcano', 'rainbow', 'haunted', 'storm', 'cosmic'];
       } else {
         state.unlockedZones = ['meadow'];
       }
@@ -3808,6 +4183,29 @@
         p.vx = (Math.random() - 0.5) * 20;
         const rainbowHue = Math.floor(Math.random() * 360);
         p.color = 'hsl(' + rainbowHue + ', 80%, 65%)';
+      } else if (zoneKey === 'haunted') {
+        // Ghost wisps: white, translucent, slow drift upward
+        p.vy = -(Math.random() * 8 + 3);
+        p.vx = (Math.random() - 0.5) * 12;
+        p.color = ['rgba(255,255,255,0.5)', 'rgba(200,255,200,0.4)', 'rgba(180,255,180,0.3)'][Math.floor(Math.random() * 3)];
+        p.isGhost = true;
+      } else if (zoneKey === 'storm') {
+        // Lightning sparks: yellow, quick flashes
+        p.vy = Math.random() * 30 + 15;
+        p.vx = (Math.random() - 0.5) * 40;
+        p.life = Math.random() * 0.5 + 0.2;
+        p.maxLife = p.life;
+        p.size = Math.random() * 2 + 1;
+        p.color = ['#FFD600', '#FFFF00', '#FFF176', '#FFFFFF'][Math.floor(Math.random() * 4)];
+      } else if (zoneKey === 'cosmic') {
+        // Twinkling stars: multi-color, slow drift
+        p.vy = (Math.random() - 0.5) * 5;
+        p.vx = (Math.random() - 0.5) * 5;
+        p.life = Math.random() * 4 + 3;
+        p.maxLife = p.life;
+        p.size = Math.random() * 2 + 1;
+        const cosmicHue = Math.floor(Math.random() * 360);
+        p.color = 'hsl(' + cosmicHue + ', 70%, 80%)';
       }
 
       state.particles.push(p);
