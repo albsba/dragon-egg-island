@@ -1874,6 +1874,7 @@
     let firebaseDb = null;
     let roomRef = null;
     let syncInterval = null;
+    let keepaliveInterval = null;
     let guestInputListener = null;
     let gameStateListener = null;
     let hostConnectionListener = null;
@@ -1883,6 +1884,16 @@
       if (firebaseApp) return;
       firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
       firebaseDb = firebase.database();
+
+      // Monitor connection state for reconnection awareness
+      const connectedRef = firebaseDb.ref('.info/connected');
+      connectedRef.on('value', function(snap) {
+        if (snap.val() === true) {
+          console.log('Firebase connected');
+        } else {
+          console.log('Firebase disconnected');
+        }
+      });
     }
 
     function generateRoomCode() {
@@ -1893,6 +1904,10 @@
       if (syncInterval) {
         clearInterval(syncInterval);
         syncInterval = null;
+      }
+      if (keepaliveInterval) {
+        clearInterval(keepaliveInterval);
+        keepaliveInterval = null;
       }
       if (guestInputListener && roomRef) {
         roomRef.child('input/guest').off('value', guestInputListener);
@@ -1937,7 +1952,7 @@
 
       // Write host entry
       roomRef.child('host').set({ connected: true });
-      roomRef.child('host').onDisconnect().remove();
+      roomRef.child('host').child('connected').onDisconnect().set(false);
       roomRef.child('input/guest').set({ dx: 0, dy: 0 });
 
       // Listen for guest connection
@@ -1999,7 +2014,7 @@
 
         // Write guest entry
         roomRef.child('guest').set({ connected: true });
-        roomRef.child('guest').onDisconnect().remove();
+        roomRef.child('guest').child('connected').onDisconnect().set(false);
 
         state.onlineStatus = 'connected';
         state.hostConnected = true;
@@ -2054,19 +2069,19 @@
         ],
         z: state.currentZone,
         e: state.eggs.map(function(egg) {
-          return { t: egg.type, x: egg.x, y: egg.y, b: egg.bobOffset };
+          return { t: egg.type, x: egg.x, y: egg.y, b: Math.round(egg.bobOffset * 100) / 100 };
         }),
         d: state.dragons.map(function(d) {
           return { t: d.type, fp: d.followPlayer, x: d.x, y: d.y };
         }),
         h: state.hatching.map(function(h) {
-          return { t: h.type, x: h.x, y: h.y, tm: h.timer, ph: h.phase };
+          return { t: h.type, x: h.x, y: h.y, tm: Math.round(h.timer * 100) / 100, ph: h.phase };
         }),
         c: state.collection,
         ul: state.unlockedZones,
-        ue: state.unlockEffect ? { tm: state.unlockEffect.timer, zone: state.unlockEffect.zone } : null,
+        ue: state.unlockEffect ? { tm: Math.round(state.unlockEffect.timer * 100) / 100, zone: state.unlockEffect.zone } : null,
         m: state.mode,
-        t: state.time,
+        t: Math.round(state.time * 10) / 10,
         started: true
       };
 
@@ -2088,7 +2103,7 @@
               sh: bp.shieldActive, sb: bp.speedBoost,
             };
           }),
-          en: state.battle.enemies.map(function(e) {
+          en: state.battle.enemies.slice(0, 20).map(function(e) {
             return {
               tp: e.type, x: Math.round(e.x), y: Math.round(e.y),
               hp: e.hp, mhp: e.maxHp, c: e.curing, ct: e.cureTimer,
@@ -2100,13 +2115,13 @@
               c: s.color, ie: !!s.isEnemy,
             };
           }),
-          dr: state.battle.drops.map(function(d) {
+          dr: state.battle.drops.slice(0, 10).map(function(d) {
             return {
               tp: d.type, x: Math.round(d.x), y: Math.round(d.y),
               c: d.color, sy: d.symbol,
             };
           }),
-          ef: state.battle.effects.slice(0, 10).map(function(e) {
+          ef: state.battle.effects.slice(0, 5).map(function(e) {
             return {
               tp: e.type, x: Math.round(e.x), y: Math.round(e.y),
               t: e.timer, mt: e.maxTimer,
@@ -2247,7 +2262,15 @@
 
     function startHostSync() {
       if (syncInterval) clearInterval(syncInterval);
-      syncInterval = setInterval(syncToFirebase, 66); // ~15 fps
+      syncInterval = setInterval(syncToFirebase, 100); // ~10 fps
+
+      // Keepalive heartbeat: write a timestamp every 10s to keep connection alive
+      if (keepaliveInterval) clearInterval(keepaliveInterval);
+      keepaliveInterval = setInterval(function() {
+        if (!roomRef) return;
+        const side = state.isHost ? 'host' : 'guest';
+        roomRef.child(side).child('lastSeen').set(Date.now());
+      }, 10000);
     }
 
     // ---- Room overlay UI helpers ----
