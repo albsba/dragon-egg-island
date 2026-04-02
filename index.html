@@ -65,7 +65,7 @@
 
     #dpad-left {
       bottom: 20px;
-      right: 200px;
+      left: 20px;
     }
 
     #dpad-right {
@@ -3720,15 +3720,37 @@
         if (state.screen === 'flight' || state.screen === 'snake') {
           // Flight/Snake mode: show d-pads for directional control
           if (!isTouchDevice) return;
-          if (state.activePlayerCount === 1) {
+          // Reset d-pad positions to defaults
+          dpadLeft.style.left = '20px';
+          dpadLeft.style.right = '';
+          dpadRight.style.right = '20px';
+          dpadRight.style.left = '';
+
+          if (state.playerMode === '2p-online') {
+            // 2-iPad: each player sees one d-pad on the RIGHT side
+            if (state.isHost) {
+              dpadLeft.classList.add('visible');
+              dpadRight.classList.remove('visible');
+              dpadLeft.style.left = '';
+              dpadLeft.style.right = '20px';
+            } else if (state.isGuest) {
+              dpadLeft.classList.remove('visible');
+              dpadRight.classList.add('visible');
+              // already on right
+            }
+          } else if (state.activePlayerCount === 1) {
             if (state.activePlayer === 0) {
               dpadLeft.classList.add('visible');
               dpadRight.classList.remove('visible');
+              // 1P: move d-pad to right side
+              dpadLeft.style.left = '';
+              dpadLeft.style.right = '20px';
             } else {
               dpadLeft.classList.remove('visible');
               dpadRight.classList.add('visible');
             }
           } else {
+            // 2P same iPad: left stays left, right stays right
             dpadLeft.classList.add('visible');
             dpadRight.classList.add('visible');
           }
