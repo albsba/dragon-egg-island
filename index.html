@@ -399,6 +399,7 @@
     <button class="title-touch-btn" id="btn-freeplay" style="display:none;">Free Play</button>
     <button class="title-touch-btn" id="btn-battle" style="display:none;">Dragon Battle</button>
     <button class="title-touch-btn" id="btn-flight" style="display:none;">Dragon Flight</button>
+    <button class="title-touch-btn" id="btn-snake" style="display:none;">Dragon Snake</button>
     <!-- Step: online -->
     <button class="title-touch-btn" id="btn-create-room" style="display:none;">Create Room</button>
     <button class="title-touch-btn" id="btn-join-room" style="display:none;">Join Room</button>
@@ -1810,7 +1811,22 @@
     };
     state.dragonSelectPlayer = 0;
     state.dragonSelectIndex = 0;
-    state.dragonSelectMode = 'battle'; // 'battle' or 'flight'
+    state.dragonSelectMode = 'battle'; // 'battle', 'flight', or 'snake'
+
+    // Snake mode state
+    state.snake = {
+      players: [
+        { segments: [{x: 5, y: 8}], dir: {dx: 1, dy: 0}, nextDir: {dx: 1, dy: 0}, moveTimer: 0, stunTimer: 0, score: 0, shieldTimer: 0, ghostTimer: 0, magnetTimer: 0 },
+        { segments: [{x: 19, y: 8}], dir: {dx: -1, dy: 0}, nextDir: {dx: -1, dy: 0}, moveTimer: 0, stunTimer: 0, score: 0, shieldTimer: 0, ghostTimer: 0, magnetTimer: 0 },
+      ],
+      playerDragons: [null, null],
+      eggs: [],
+      powerUps: [],
+      moveInterval: 0.18,
+      time: 0,
+      gridW: Math.floor(CANVAS_W / TILE),
+      gridH: Math.floor((CANVAS_H - TILE * 2) / TILE),
+    };
 
     // Flight mode state
     state.flight = {
@@ -2950,34 +2966,42 @@
         const fpSel  = state.titleSelection === 1;
         const btSel  = state.titleSelection === 2;
         const flSel  = state.titleSelection === 3;
+        const snSel  = state.titleSelection === 4;
 
         ctx.fillStyle = advSel ? '#FFD700' : '#666';
-        ctx.font = (advSel ? 'bold ' : '') + '20px monospace';
-        ctx.fillText(advSel ? '> Adventure <' : 'Adventure', CANVAS_W / 2, 275);
+        ctx.font = (advSel ? 'bold ' : '') + '18px monospace';
+        ctx.fillText(advSel ? '> Adventure <' : 'Adventure', CANVAS_W / 2, 270);
         ctx.font = '10px monospace';
         ctx.fillStyle = advSel ? '#ccc' : '#555';
-        ctx.fillText('Explore zones, collect eggs, unlock new areas!', CANVAS_W / 2, 292);
+        ctx.fillText('Explore zones, collect eggs, unlock new areas!', CANVAS_W / 2, 285);
 
         ctx.fillStyle = fpSel ? '#FFD700' : '#666';
-        ctx.font = (fpSel ? 'bold ' : '') + '20px monospace';
-        ctx.fillText(fpSel ? '> Free Play <' : 'Free Play', CANVAS_W / 2, 335);
+        ctx.font = (fpSel ? 'bold ' : '') + '18px monospace';
+        ctx.fillText(fpSel ? '> Free Play <' : 'Free Play', CANVAS_W / 2, 318);
         ctx.font = '10px monospace';
         ctx.fillStyle = fpSel ? '#ccc' : '#555';
-        ctx.fillText('All zones open, just explore and have fun!', CANVAS_W / 2, 352);
+        ctx.fillText('All zones open, just explore and have fun!', CANVAS_W / 2, 333);
 
         ctx.fillStyle = btSel ? '#FFD700' : '#666';
-        ctx.font = (btSel ? 'bold ' : '') + '20px monospace';
-        ctx.fillText(btSel ? '> Dragon Battle <' : 'Dragon Battle', CANVAS_W / 2, 395);
+        ctx.font = (btSel ? 'bold ' : '') + '18px monospace';
+        ctx.fillText(btSel ? '> Dragon Battle <' : 'Dragon Battle', CANVAS_W / 2, 366);
         ctx.font = '10px monospace';
         ctx.fillStyle = btSel ? '#ccc' : '#555';
-        ctx.fillText('Fight waves of shadow enemies with your dragon!', CANVAS_W / 2, 412);
+        ctx.fillText('Fight waves of shadow enemies with your dragon!', CANVAS_W / 2, 381);
 
         ctx.fillStyle = flSel ? '#FFD700' : '#666';
-        ctx.font = (flSel ? 'bold ' : '') + '20px monospace';
-        ctx.fillText(flSel ? '> Dragon Flight <' : 'Dragon Flight', CANVAS_W / 2, 455);
+        ctx.font = (flSel ? 'bold ' : '') + '18px monospace';
+        ctx.fillText(flSel ? '> Dragon Flight <' : 'Dragon Flight', CANVAS_W / 2, 414);
         ctx.font = '10px monospace';
         ctx.fillStyle = flSel ? '#ccc' : '#555';
-        ctx.fillText('Fly through obstacles and collect eggs!', CANVAS_W / 2, 472);
+        ctx.fillText('Fly through obstacles and collect eggs!', CANVAS_W / 2, 429);
+
+        ctx.fillStyle = snSel ? '#FFD700' : '#666';
+        ctx.font = (snSel ? 'bold ' : '') + '18px monospace';
+        ctx.fillText(snSel ? '> Dragon Snake <' : 'Dragon Snake', CANVAS_W / 2, 462);
+        ctx.font = '10px monospace';
+        ctx.fillStyle = snSel ? '#ccc' : '#555';
+        ctx.fillText('Grow your dragon by collecting eggs!', CANVAS_W / 2, 477);
 
         ctx.fillStyle = '#555';
         ctx.font = '11px monospace';
@@ -3114,7 +3138,7 @@
           sfxMenuSelect();
         }
         if (keys['ArrowDown'] || keys['s']) {
-          state.titleSelection = Math.min(3, state.titleSelection + 1);
+          state.titleSelection = Math.min(4, state.titleSelection + 1);
           keys['ArrowDown'] = false; keys['s'] = false;
           sfxMenuSelect();
         }
@@ -3137,9 +3161,9 @@
         if (keys['Enter'] || keys[' ']) {
           keys['Enter'] = false; keys[' '] = false;
           sfxMenuConfirm();
-          if (state.titleSelection === 2 || state.titleSelection === 3) {
-            // Dragon Battle or Dragon Flight
-            state.dragonSelectMode = state.titleSelection === 2 ? 'battle' : 'flight';
+          if (state.titleSelection === 2 || state.titleSelection === 3 || state.titleSelection === 4) {
+            // Dragon Battle, Dragon Flight, or Dragon Snake
+            state.dragonSelectMode = state.titleSelection === 2 ? 'battle' : state.titleSelection === 3 ? 'flight' : 'snake';
             state.screen = 'dragonSelect';
             state.dragonSelectPlayer = 0;
             state.dragonSelectIndex = 0;
@@ -3606,7 +3630,7 @@
     const TITLE_STEP_BTNS = {
       mode:      ['btn-1p', 'btn-2p-local', 'btn-2p-online'],
       character: ['btn-harper', 'btn-audrey'],
-      gametype:  ['btn-adventure', 'btn-freeplay', 'btn-battle', 'btn-flight'],
+      gametype:  ['btn-adventure', 'btn-freeplay', 'btn-battle', 'btn-flight', 'btn-snake'],
       online:    ['btn-create-room', 'btn-join-room'],
     };
 
@@ -3658,8 +3682,8 @@
           if (rideBtnR) rideBtnR.style.display = 'none';
           return;
         }
-        if (state.screen === 'flight') {
-          // Flight mode: show d-pads for up/down control
+        if (state.screen === 'flight' || state.screen === 'snake') {
+          // Flight/Snake mode: show d-pads for directional control
           if (!isTouchDevice) return;
           if (state.activePlayerCount === 1) {
             if (state.activePlayer === 0) {
@@ -3673,6 +3697,8 @@
             dpadLeft.classList.add('visible');
             dpadRight.classList.add('visible');
           }
+          if (rideBtnL) rideBtnL.style.display = 'none';
+          if (rideBtnR) rideBtnR.style.display = 'none';
           return;
         }
         if (state.screen !== 'playing') {
@@ -3782,6 +3808,14 @@
 
     titleTouchBtn('btn-flight', function() {
       state.dragonSelectMode = 'flight';
+      state.screen = 'dragonSelect';
+      state.dragonSelectPlayer = 0;
+      state.dragonSelectIndex = 0;
+      updateTitleTouchUI();
+    });
+
+    titleTouchBtn('btn-snake', function() {
+      state.dragonSelectMode = 'snake';
       state.screen = 'dragonSelect';
       state.dragonSelectPlayer = 0;
       state.dragonSelectIndex = 0;
@@ -3916,7 +3950,7 @@
       ctx.fillText('Super: ' + selCfg.superName, CANVAS_W / 2, 402);
 
       // Show player 1's choice if player 2 is selecting
-      const selectDragons = state.dragonSelectMode === 'flight' ? state.flight.playerDragons : state.battle.playerDragons;
+      const selectDragons = state.dragonSelectMode === 'flight' ? state.flight.playerDragons : state.dragonSelectMode === 'snake' ? state.snake.playerDragons : state.battle.playerDragons;
       if (state.dragonSelectPlayer === 1 && selectDragons[0] !== null) {
         const p1Key = selectDragons[0];
         const p1Cfg = DRAGON_CONFIGS[p1Key];
@@ -3950,6 +3984,8 @@
         const chosenDragon = DRAGON_KEYS[state.dragonSelectIndex];
         if (state.dragonSelectMode === 'flight') {
           state.flight.playerDragons[state.dragonSelectPlayer] = chosenDragon;
+        } else if (state.dragonSelectMode === 'snake') {
+          state.snake.playerDragons[state.dragonSelectPlayer] = chosenDragon;
         } else {
           state.battle.playerDragons[state.dragonSelectPlayer] = chosenDragon;
         }
@@ -3962,6 +3998,8 @@
           // Start the appropriate mode
           if (state.dragonSelectMode === 'flight') {
             startFlight();
+          } else if (state.dragonSelectMode === 'snake') {
+            startSnake();
           } else {
             startBattle();
           }
@@ -3974,6 +4012,8 @@
           state.dragonSelectPlayer = 0;
           if (state.dragonSelectMode === 'flight') {
             state.flight.playerDragons[0] = null;
+          } else if (state.dragonSelectMode === 'snake') {
+            state.snake.playerDragons[0] = null;
           } else {
             state.battle.playerDragons[0] = null;
           }
@@ -3982,7 +4022,7 @@
           // Go back to title gametype step
           state.screen = 'title';
           state.titleStep = 'gametype';
-          state.titleSelection = state.dragonSelectMode === 'flight' ? 3 : 2;
+          state.titleSelection = state.dragonSelectMode === 'flight' ? 3 : state.dragonSelectMode === 'snake' ? 4 : 2;
           updateTitleTouchUI();
         }
       }
@@ -7155,6 +7195,399 @@
       }
     });
 
+    // Escape from snake mode
+    document.addEventListener('keydown', function(e) {
+      if (state.screen !== 'snake') return;
+      if (e.key === 'Escape') {
+        returnToTitle();
+        updateTitleTouchUI();
+      }
+    });
+
+    // ============================================================
+    // DRAGON SNAKE MODE
+    // ============================================================
+
+    function startSnake() {
+      state.screen = 'snake';
+      state.snake.time = 0;
+      state.snake.moveInterval = 0.18;
+      state.snake.eggs = [];
+      state.snake.powerUps = [];
+
+      state.snake.players[0] = {
+        segments: [{x: 5, y: 8}, {x: 4, y: 8}, {x: 3, y: 8}],
+        dir: {dx: 1, dy: 0}, nextDir: {dx: 1, dy: 0},
+        moveTimer: 0, stunTimer: 0, score: 0,
+        shieldTimer: 0, ghostTimer: 0, magnetTimer: 0,
+      };
+      state.snake.players[1] = {
+        segments: [{x: 19, y: 8}, {x: 20, y: 8}, {x: 21, y: 8}],
+        dir: {dx: -1, dy: 0}, nextDir: {dx: -1, dy: 0},
+        moveTimer: 0, stunTimer: 0, score: 0,
+        shieldTimer: 0, ghostTimer: 0, magnetTimer: 0,
+      };
+
+      for (var i = 0; i < 3; i++) spawnSnakeEgg();
+      updateTitleTouchUI();
+    }
+
+    function spawnSnakeEgg() {
+      var types = ['fire','nature','love','ice','star','shadow','ghost','thorn','rainbow'];
+      var x, y, valid;
+      for (var attempt = 0; attempt < 50; attempt++) {
+        x = Math.floor(Math.random() * state.snake.gridW);
+        y = Math.floor(Math.random() * state.snake.gridH);
+        valid = true;
+        for (var si = 0; si < state.snake.players.length; si++) {
+          var sp = state.snake.players[si];
+          for (var sj = 0; sj < sp.segments.length; sj++) {
+            if (sp.segments[sj].x === x && sp.segments[sj].y === y) { valid = false; break; }
+          }
+          if (!valid) break;
+        }
+        // Also avoid existing eggs
+        if (valid) {
+          for (var ei = 0; ei < state.snake.eggs.length; ei++) {
+            if (state.snake.eggs[ei].x === x && state.snake.eggs[ei].y === y) { valid = false; break; }
+          }
+        }
+        if (valid) break;
+      }
+      if (valid) {
+        state.snake.eggs.push({ x: x, y: y, type: types[Math.floor(Math.random() * types.length)] });
+      }
+    }
+
+    function spawnSnakePowerUp() {
+      var types = ['speed', 'shield', 'ghost', 'magnet'];
+      var x, y, valid;
+      for (var attempt = 0; attempt < 50; attempt++) {
+        x = Math.floor(Math.random() * state.snake.gridW);
+        y = Math.floor(Math.random() * state.snake.gridH);
+        valid = true;
+        for (var si = 0; si < state.snake.players.length; si++) {
+          var sp = state.snake.players[si];
+          for (var sj = 0; sj < sp.segments.length; sj++) {
+            if (sp.segments[sj].x === x && sp.segments[sj].y === y) { valid = false; break; }
+          }
+          if (!valid) break;
+        }
+        if (valid) break;
+      }
+      if (valid) {
+        state.snake.powerUps.push({ x: x, y: y, type: types[Math.floor(Math.random() * types.length)] });
+      }
+    }
+
+    function updateSnakePlayers(dt) {
+      var activePlayers = getActivePlayers();
+
+      for (var i = 0; i < activePlayers.length; i++) {
+        var p = activePlayers[i];
+        var pi = state.activePlayerCount === 1 ? state.activePlayer : i;
+        var sp = state.snake.players[pi];
+
+        if (sp.stunTimer > 0) {
+          sp.stunTimer -= dt;
+          continue;
+        }
+
+        // Read input for direction change
+        var input = getPlayerInput(p.keys.up, p.keys.down, p.keys.left, p.keys.right);
+        if (input.dx !== 0 || input.dy !== 0) {
+          // Prevent 180 reversal
+          if (!(input.dx === -sp.dir.dx && input.dy === -sp.dir.dy)) {
+            sp.nextDir = { dx: input.dx, dy: input.dy };
+          }
+        }
+
+        // Decrement power-up timers
+        if (sp.shieldTimer > 0) sp.shieldTimer -= dt;
+        if (sp.ghostTimer > 0) sp.ghostTimer -= dt;
+        if (sp.magnetTimer > 0) sp.magnetTimer -= dt;
+
+        // Magnet effect: move nearest egg closer
+        if (sp.magnetTimer > 0 && state.snake.eggs.length > 0) {
+          var head = sp.segments[0];
+          var nearest = null, nearDist = Infinity;
+          for (var me = 0; me < state.snake.eggs.length; me++) {
+            var egg = state.snake.eggs[me];
+            var d = Math.abs(egg.x - head.x) + Math.abs(egg.y - head.y);
+            if (d < nearDist) { nearDist = d; nearest = egg; }
+          }
+          if (nearest && nearDist > 0) {
+            if (nearest.x < head.x) nearest.x++;
+            else if (nearest.x > head.x) nearest.x--;
+            else if (nearest.y < head.y) nearest.y++;
+            else if (nearest.y > head.y) nearest.y--;
+          }
+        }
+
+        // Move on timer
+        sp.moveTimer -= dt;
+        if (sp.moveTimer <= 0) {
+          sp.moveTimer = state.snake.moveInterval;
+          sp.dir = { dx: sp.nextDir.dx, dy: sp.nextDir.dy };
+
+          var mHead = sp.segments[0];
+          var newHead = { x: mHead.x + sp.dir.dx, y: mHead.y + sp.dir.dy };
+
+          // Wall collision
+          if (newHead.x < 0 || newHead.x >= state.snake.gridW || newHead.y < 0 || newHead.y >= state.snake.gridH) {
+            if (sp.shieldTimer > 0) {
+              sp.shieldTimer = 0;
+              sp.dir.dx = -sp.dir.dx;
+              sp.dir.dy = -sp.dir.dy;
+              sp.nextDir = { dx: sp.dir.dx, dy: sp.dir.dy };
+            } else {
+              sp.segments = sp.segments.slice(0, Math.max(1, sp.segments.length - 2));
+              sp.stunTimer = 0.5;
+              sfxPlayerHit();
+              sp.dir.dx = -sp.dir.dx;
+              sp.dir.dy = -sp.dir.dy;
+              sp.nextDir = { dx: sp.dir.dx, dy: sp.dir.dy };
+            }
+            continue;
+          }
+
+          // Self collision
+          var hitSelf = false;
+          if (sp.ghostTimer <= 0) {
+            for (var si = 1; si < sp.segments.length; si++) {
+              if (sp.segments[si].x === newHead.x && sp.segments[si].y === newHead.y) {
+                hitSelf = true;
+                break;
+              }
+            }
+          }
+          if (hitSelf) {
+            sp.segments = sp.segments.slice(0, Math.max(1, sp.segments.length - 1));
+            sp.stunTimer = 0.3;
+            sfxPlayerHit();
+            continue;
+          }
+
+          // Other player collision (2P)
+          if (state.activePlayerCount === 2) {
+            var otherPi = pi === 0 ? 1 : 0;
+            var otherSp = state.snake.players[otherPi];
+            var hitOther = false;
+            for (var oi = 0; oi < otherSp.segments.length; oi++) {
+              if (otherSp.segments[oi].x === newHead.x && otherSp.segments[oi].y === newHead.y) {
+                hitOther = true;
+                break;
+              }
+            }
+            if (hitOther) {
+              otherSp.segments = otherSp.segments.slice(0, Math.max(1, otherSp.segments.length - 1));
+              sfxEnemyHit();
+            }
+          }
+
+          // Move: add new head, remove tail (unless eating)
+          sp.segments.unshift(newHead);
+
+          // Check egg eating
+          var ate = false;
+          for (var ei = state.snake.eggs.length - 1; ei >= 0; ei--) {
+            var sEgg = state.snake.eggs[ei];
+            if (sEgg.x === newHead.x && sEgg.y === newHead.y) {
+              ate = true;
+              sp.score += 10;
+              sfxCollect();
+
+              var bonus = sEgg.type === 'rainbow' ? 3 : sEgg.type === 'star' ? 2 : 1;
+              for (var b = 1; b < bonus; b++) {
+                sp.segments.push({ x: sp.segments[sp.segments.length - 1].x, y: sp.segments[sp.segments.length - 1].y });
+              }
+
+              state.snake.eggs.splice(ei, 1);
+              break;
+            }
+          }
+
+          // Check power-up eating
+          for (var pui = state.snake.powerUps.length - 1; pui >= 0; pui--) {
+            var pu = state.snake.powerUps[pui];
+            if (pu.x === newHead.x && pu.y === newHead.y) {
+              if (pu.type === 'speed') state.snake.moveInterval = Math.max(0.08, state.snake.moveInterval - 0.02);
+              if (pu.type === 'shield') sp.shieldTimer = 10;
+              if (pu.type === 'ghost') sp.ghostTimer = 8;
+              if (pu.type === 'magnet') sp.magnetTimer = 8;
+              sfxPowerUp();
+              sp.score += 5;
+              state.snake.powerUps.splice(pui, 1);
+              break;
+            }
+          }
+
+          if (!ate) {
+            sp.segments.pop();
+          }
+        }
+      }
+    }
+
+    function updateSnake(dt) {
+      state.snake.time += dt;
+
+      // Gradually speed up
+      state.snake.moveInterval = Math.max(0.08, 0.18 - state.snake.time * 0.0005);
+
+      updateSnakePlayers(dt);
+
+      // Keep 3-5 eggs on screen
+      if (state.snake.eggs.length < 3) spawnSnakeEgg();
+
+      // Spawn power-up occasionally
+      if (state.snake.powerUps.length < 1 && Math.random() < 0.005) {
+        spawnSnakePowerUp();
+      }
+    }
+
+    function drawSnakeBackground() {
+      ctx.fillStyle = '#0a1a0a';
+      ctx.fillRect(0, UI_ROWS * TILE, CANVAS_W, state.snake.gridH * TILE);
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+      ctx.lineWidth = 1;
+      for (var c = 0; c <= state.snake.gridW; c++) {
+        ctx.beginPath();
+        ctx.moveTo(c * TILE, UI_ROWS * TILE);
+        ctx.lineTo(c * TILE, (UI_ROWS + state.snake.gridH) * TILE);
+        ctx.stroke();
+      }
+      for (var r = 0; r <= state.snake.gridH; r++) {
+        ctx.beginPath();
+        ctx.moveTo(0, (r + UI_ROWS) * TILE);
+        ctx.lineTo(state.snake.gridW * TILE, (r + UI_ROWS) * TILE);
+        ctx.stroke();
+      }
+    }
+
+    function drawSnakePlayers() {
+      for (var i = 0; i < state.activePlayerCount; i++) {
+        var pi = state.activePlayerCount === 1 ? state.activePlayer : i;
+        var sp = state.snake.players[pi];
+        var dragonKey = state.snake.playerDragons[pi];
+        var config = DRAGON_CONFIGS[dragonKey];
+
+        for (var s = sp.segments.length - 1; s >= 0; s--) {
+          var seg = sp.segments[s];
+          var px = seg.x * TILE;
+          var py = (seg.y + UI_ROWS) * TILE;
+
+          if (s === 0) {
+            // Head: draw dragon sprite
+            if (sp.stunTimer > 0 && Math.floor(state.time * 10) % 2 === 0) continue;
+
+            if (sp.ghostTimer > 0) ctx.globalAlpha = 0.5;
+            drawSprite(DRAGON_SPRITES[dragonKey], px, py, TILE);
+            ctx.globalAlpha = 1;
+
+            // Shield indicator
+            if (sp.shieldTimer > 0) {
+              ctx.strokeStyle = 'rgba(105, 240, 174, 0.5)';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.arc(px + TILE/2, py + TILE/2, TILE/2 + 4, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+          } else {
+            // Body: colored circles that fade toward tail
+            var alpha = 0.3 + 0.5 * (1 - s / sp.segments.length);
+            ctx.globalAlpha = sp.ghostTimer > 0 ? alpha * 0.4 : alpha;
+            ctx.fillStyle = config ? config.color : '#888';
+            ctx.beginPath();
+            ctx.arc(px + TILE/2, py + TILE/2, TILE/2 - 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+          }
+        }
+      }
+    }
+
+    function drawSnakeEggs() {
+      for (var ei = 0; ei < state.snake.eggs.length; ei++) {
+        var egg = state.snake.eggs[ei];
+        var px = egg.x * TILE + 4;
+        var py = (egg.y + UI_ROWS) * TILE;
+        var bob = Math.sin(state.time * 3 + egg.x + egg.y) * 2;
+
+        ctx.fillStyle = 'rgba(255,255,200,0.15)';
+        ctx.beginPath();
+        ctx.arc(egg.x * TILE + TILE/2, (egg.y + UI_ROWS) * TILE + TILE/2 + bob, TILE/2, 0, Math.PI * 2);
+        ctx.fill();
+
+        drawSprite(EGG_SPRITES[egg.type] || EGG_SPRITES.fire, px, py + bob, TILE * 0.75);
+      }
+    }
+
+    function drawSnakePowerUps() {
+      var symbols = { speed: '\u26A1', shield: '\u25C7', ghost: '\uD83D\uDC7B', magnet: '\u2295' };
+      var colors = { speed: '#00E676', shield: '#69F0AE', ghost: '#B0BEC5', magnet: '#FFEB3B' };
+
+      for (var pi = 0; pi < state.snake.powerUps.length; pi++) {
+        var pu = state.snake.powerUps[pi];
+        var px = pu.x * TILE + TILE/2;
+        var py = (pu.y + UI_ROWS) * TILE + TILE/2;
+        var pulse = Math.sin(state.time * 4) * 3;
+
+        ctx.fillStyle = colors[pu.type] || '#fff';
+        ctx.font = (14 + pulse) + 'px serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(symbols[pu.type] || '?', px, py + 5);
+      }
+    }
+
+    function drawSnakeHUD() {
+      ctx.fillStyle = '#0a1a0a';
+      ctx.fillRect(0, 0, CANVAS_W, UI_ROWS * TILE);
+
+      for (var i = 0; i < state.activePlayerCount; i++) {
+        var pi = state.activePlayerCount === 1 ? state.activePlayer : i;
+        var sp = state.snake.players[pi];
+        var dragonKey = state.snake.playerDragons[pi];
+        var config = DRAGON_CONFIGS[dragonKey];
+        var isLeft = i === 0;
+
+        ctx.fillStyle = config ? config.color : '#aaa';
+        ctx.font = 'bold 12px monospace';
+        ctx.textAlign = isLeft ? 'left' : 'right';
+        var x = isLeft ? 10 : CANVAS_W - 10;
+        ctx.fillText(players[pi].name + ' - ' + (config ? config.name.split(' ')[0] : '???'), x, 18);
+
+        ctx.fillStyle = '#aaa';
+        ctx.font = '11px monospace';
+        ctx.fillText('Score: ' + sp.score + ' | Length: ' + sp.segments.length, x, 34);
+
+        // Power-up indicators
+        var statusParts = [];
+        if (sp.shieldTimer > 0) statusParts.push('Shield:' + Math.ceil(sp.shieldTimer));
+        if (sp.ghostTimer > 0) statusParts.push('Ghost:' + Math.ceil(sp.ghostTimer));
+        if (sp.magnetTimer > 0) statusParts.push('Magnet:' + Math.ceil(sp.magnetTimer));
+        if (statusParts.length > 0) {
+          ctx.fillStyle = '#6a6';
+          ctx.font = '9px monospace';
+          ctx.fillText(statusParts.join('  '), x, 48);
+        }
+      }
+
+      // Center: speed
+      ctx.fillStyle = '#666';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Speed: ' + Math.floor((0.18 - state.snake.moveInterval) / 0.10 * 100) + '%', CANVAS_W / 2, 18);
+
+      // Divider
+      ctx.strokeStyle = '#333';
+      ctx.beginPath();
+      ctx.moveTo(0, UI_ROWS * TILE);
+      ctx.lineTo(CANVAS_W, UI_ROWS * TILE);
+      ctx.stroke();
+    }
+
     // ============================================================
     // GAME LOOP
     // ============================================================
@@ -7310,6 +7743,15 @@
         }
         drawFlightPlayers();
         drawFlightHUD();
+      } else if (state.screen === 'snake') {
+        if (!state.isGuest) {
+          updateSnake(dt);
+        }
+        drawSnakeBackground();
+        drawSnakeEggs();
+        drawSnakePowerUps();
+        drawSnakePlayers();
+        drawSnakeHUD();
       }
 
       requestAnimationFrame(loop);
