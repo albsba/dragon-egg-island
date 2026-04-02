@@ -761,6 +761,187 @@
     ];
 
     // ============================================================
+    // SECRET ROOMS
+    // ============================================================
+    const SECRETS = {
+      meadow: {
+        secretTiles: [
+          { col: 5, row: 11, originalType: 'bush' },
+          { col: 19, row: 3, originalType: 'bush' },
+        ],
+        room: { name: 'Secret Garden', width: 10, height: 8, bg: '#2d6a1e', tiles: 'meadow_secret', eggs: ['fire', 'nature'], eggCount: 2 }
+      },
+      heart: {
+        secretTiles: [
+          { col: 10, row: 10, originalType: 'flower_p' },
+        ],
+        room: { name: 'Heart Clearing', width: 10, height: 8, bg: '#8B2252', tiles: 'heart_secret', eggs: ['love'], eggCount: 2 }
+      },
+      enchanted: {
+        secretTiles: [
+          { col: 7, row: 7, originalType: 'mushroom' },
+          { col: 17, row: 10, originalType: 'dark_tree_trunk' },
+        ],
+        room: { name: 'Fairy Circle', width: 10, height: 8, bg: '#1a3a14', tiles: 'enchanted_secret', eggs: ['ghost', 'shadow'], eggCount: 2 }
+      },
+      crystal: {
+        secretTiles: [
+          { col: 3, row: 6, originalType: 'crystal' },
+        ],
+        room: { name: 'Gem Vault', width: 10, height: 8, bg: '#2a2a4e', tiles: 'crystal_secret', eggs: ['star', 'ice'], eggCount: 2 }
+      },
+      snowy: {
+        secretTiles: [
+          { col: 21, row: 4, originalType: 'snow_rock' },
+        ],
+        room: { name: 'Ice Castle', width: 10, height: 8, bg: '#c8d8e8', tiles: 'snowy_secret', eggs: ['ice'], eggCount: 2 }
+      },
+      volcano: {
+        secretTiles: [
+          { col: 5, row: 11, originalType: 'magma_rock' },
+        ],
+        room: { name: 'Magma Chamber', width: 10, height: 8, bg: '#3a1a0a', tiles: 'volcano_secret', eggs: ['fire', 'shadow'], eggCount: 2 }
+      },
+      rainbow: {
+        secretTiles: [
+          { col: 3, row: 11, originalType: 'sparkle_tile' },
+        ],
+        room: { name: 'Prismatic Shrine', width: 10, height: 8, bg: '#2a4a2a', tiles: 'rainbow_secret', eggs: ['rainbow'], eggCount: 3 }
+      },
+    };
+
+    function generateSecretRoom(zoneKey) {
+      const secret = SECRETS[zoneKey];
+      if (!secret) return null;
+
+      const w = secret.room.width;
+      const h = secret.room.height;
+      const map = [];
+
+      const wallTile = {
+        meadow: 'bush', heart: 'heart_leaf', enchanted: 'dark_tree_top',
+        crystal: 'cave_wall', snowy: 'snow_rock', volcano: 'volcanic_rock', rainbow: 'rainbow_rock'
+      }[zoneKey];
+
+      const floorTile = {
+        meadow: 'grass', heart: 'grass', enchanted: 'moss',
+        crystal: 'cave_floor', snowy: 'snow', volcano: 'ash', rainbow: 'rainbow_grass'
+      }[zoneKey];
+
+      const decorTile = {
+        meadow: 'flower_y', heart: 'flower_p', enchanted: 'mushroom',
+        crystal: 'gem_blue', snowy: 'snow2', volcano: 'ember', rainbow: 'sparkle_tile'
+      }[zoneKey];
+
+      for (let r = 0; r < h; r++) {
+        const row = [];
+        for (let c = 0; c < w; c++) {
+          if (r === 0 || r === h - 1 || c === 0 || c === w - 1) {
+            if (r === h - 1 && c >= 4 && c <= 5) {
+              row.push('path');
+            } else {
+              row.push(wallTile);
+            }
+          } else if ((r + c) % 5 === 0) {
+            row.push(decorTile);
+          } else {
+            row.push(floorTile);
+          }
+        }
+        map.push(row);
+      }
+
+      return map;
+    }
+
+    // ============================================================
+    // QUEST SYSTEM
+    // ============================================================
+    const QUEST_TEMPLATES = [
+      { type: 'collect', text: 'Collect 3 {type} eggs', target: 3 },
+      { type: 'visit', text: 'Visit {zone}' },
+      { type: 'secret', text: 'Find a secret room' },
+      { type: 'hatch', text: 'Hatch 5 dragons', target: 5 },
+      { type: 'types', text: 'Collect 2 different types', target: 2 },
+      { type: 'collect_any', text: 'Collect an egg in {zone}' },
+      { type: 'parade', text: 'Build a parade of 4 dragons', target: 4 },
+    ];
+
+    function generateQuest() {
+      const template = QUEST_TEMPLATES[Math.floor(Math.random() * QUEST_TEMPLATES.length)];
+      const quest = { ...template, progress: 0, completed: false };
+
+      if (quest.type === 'collect') {
+        const types = ['fire', 'nature', 'love', 'shadow', 'star', 'ice', 'ghost', 'thorn'];
+        quest.dragonType = types[Math.floor(Math.random() * types.length)];
+        quest.text = quest.text.replace('{type}', quest.dragonType);
+      } else if (quest.type === 'visit' || quest.type === 'collect_any') {
+        const zones = state.unlockedZones.filter(function(z) { return z !== state.currentZone; });
+        if (zones.length === 0) return generateQuest();
+        const zone = zones[Math.floor(Math.random() * zones.length)];
+        quest.targetZone = zone;
+        quest.text = quest.text.replace('{zone}', ZONES[zone].name);
+      }
+
+      if (quest.type === 'collect_any') {
+        quest.startTotal = Object.values(state.collection).reduce(function(a, b) { return a + b; }, 0);
+      }
+
+      return quest;
+    }
+
+    function initQuests() {
+      state.quests = [];
+      for (let i = 0; i < 3; i++) {
+        state.quests.push(generateQuest());
+      }
+    }
+
+    function checkQuests() {
+      for (let i = 0; i < state.quests.length; i++) {
+        const q = state.quests[i];
+        if (q.completed) continue;
+
+        let done = false;
+        switch (q.type) {
+          case 'collect':
+            done = (state.collection[q.dragonType] || 0) >= q.target;
+            break;
+          case 'visit':
+            done = state.currentZone === q.targetZone;
+            break;
+          case 'secret':
+            done = Object.values(state.secretRoomFound).some(function(v) { return v; });
+            break;
+          case 'hatch':
+            done = Object.values(state.collection).reduce(function(a, b) { return a + b; }, 0) >= q.target;
+            break;
+          case 'types':
+            done = Object.keys(state.collection).length >= q.target;
+            break;
+          case 'collect_any':
+            done = state.currentZone === q.targetZone && state.collection && Object.values(state.collection).reduce(function(a, b) { return a + b; }, 0) > (q.startTotal || 0);
+            break;
+          case 'parade':
+            done = state.dragons.length >= q.target;
+            break;
+        }
+
+        if (done) {
+          q.completed = true;
+          state.stars++;
+          try { localStorage.setItem('dragonIslandStars', state.stars.toString()); } catch(e) {}
+          state.questComplete = { text: q.text + ' \u2605', timer: 2 };
+
+          const questIndex = i;
+          setTimeout(function() {
+            state.quests[questIndex] = generateQuest();
+          }, 2000);
+        }
+      }
+    }
+
+    // ============================================================
     // SPRITE DATA
     // ============================================================
     const SPRITES = {
@@ -1033,9 +1214,73 @@
     }
 
     function drawZone(zone) {
+      if (state.inSecretRoom && state.secretRoomMap) {
+        const map = state.secretRoomMap;
+        const offsetCol = Math.floor((COLS - map[0].length) / 2);
+        const offsetRow = Math.floor((MAP_ROWS - map.length) / 2);
+
+        // Draw dark background
+        ctx.fillStyle = SECRETS[state.secretRoomZone].room.bg;
+        ctx.fillRect(0, UI_ROWS * TILE, CANVAS_W, MAP_ROWS * TILE);
+
+        // Draw room tiles centered
+        for (let row = 0; row < map.length; row++) {
+          for (let col = 0; col < map[row].length; col++) {
+            drawTile(map[row][col], col + offsetCol, row + offsetRow);
+          }
+        }
+
+        // "Secret Room!" label
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 14px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(SECRETS[state.secretRoomZone].room.name, CANVAS_W / 2, UI_ROWS * TILE + 20);
+
+        return;
+      }
+
       for (let row = 0; row < MAP_ROWS; row++) {
         for (let col = 0; col < COLS; col++) {
           drawTile(zone.map[row][col], col, row);
+        }
+      }
+
+      // Secret path rendering (earned by collecting all eggs)
+      if (state.secretPathActive[state.currentZone] && !state.inSecretRoom) {
+        const pathX = 12 * TILE;
+        const pathY = (8 + UI_ROWS) * TILE;
+        const timer = state.secretPathTimer[state.currentZone] || 0;
+        const bright = timer > 30;
+
+        const pulse = bright
+          ? 0.5 + Math.sin(state.time * 4) * 0.5
+          : 0.2 + Math.sin(state.time * 2) * 0.1;
+
+        ctx.fillStyle = 'rgba(255, 215, 0, ' + pulse + ')';
+        ctx.fillRect(pathX, pathY, TILE, TILE);
+
+        if (bright) {
+          for (let i = 0; i < 4; i++) {
+            const sx = pathX + Math.sin(state.time * 3 + i * 1.5) * 8 + TILE / 2;
+            const sy = pathY + Math.cos(state.time * 2 + i) * 8 + TILE / 2;
+            ctx.fillStyle = 'rgba(255, 255, 100, ' + pulse + ')';
+            ctx.fillRect(sx - 1, sy - 1, 3, 3);
+          }
+        }
+      }
+
+      // Secret tile visual hints (subtle sparkle on undiscovered secret tiles)
+      if (SECRETS[state.currentZone] && !state.inSecretRoom) {
+        for (const st of SECRETS[state.currentZone].secretTiles) {
+          if (!state.secretRoomFound[state.currentZone]) {
+            const sparkle = Math.sin(state.time * 1.5 + st.col + st.row) > 0.85;
+            if (sparkle) {
+              const sx = st.col * TILE + TILE / 2;
+              const sy = (st.row + UI_ROWS) * TILE + TILE / 2;
+              ctx.fillStyle = 'rgba(255, 255, 200, 0.4)';
+              ctx.fillRect(sx - 1, sy - 1, 3, 3);
+            }
+          }
         }
       }
     }
@@ -1045,8 +1290,15 @@
       for (let i = 0; i < active.length; i++) {
         const p = active[i];
         const pi = state.activePlayerCount === 1 ? state.activePlayer : i;
-        const px = p.x * TILE;
-        const py = (p.y + UI_ROWS) * TILE;
+        let px = p.x * TILE;
+        let py = (p.y + UI_ROWS) * TILE;
+
+        if (state.inSecretRoom && state.secretRoomMap) {
+          const offsetCol = Math.floor((COLS - state.secretRoomMap[0].length) / 2);
+          const offsetRow = Math.floor((MAP_ROWS - state.secretRoomMap.length) / 2);
+          px = (p.x + offsetCol) * TILE;
+          py = (p.y + offsetRow + UI_ROWS) * TILE;
+        }
 
         if (state.riding[pi] && state.ridingDragon[pi]) {
           // Draw riding dragon (larger)
@@ -1084,14 +1336,19 @@
     function drawEggs() {
       for (const egg of state.eggs) {
         const bob = Math.sin(state.time * 2 + egg.bobOffset) * 3;
-        const px = egg.x * TILE + 4;
-        const py = (egg.y + UI_ROWS) * TILE + bob;
+        let oC = 0, oR = 0;
+        if (state.inSecretRoom && state.secretRoomMap) {
+          oC = Math.floor((COLS - state.secretRoomMap[0].length) / 2);
+          oR = Math.floor((MAP_ROWS - state.secretRoomMap.length) / 2);
+        }
+        const px = (egg.x + oC) * TILE + 4;
+        const py = (egg.y + oR + UI_ROWS) * TILE + bob;
 
         // Glow effect
         const glowAlpha = 0.3 + Math.sin(state.time * 3 + egg.bobOffset) * 0.15;
         ctx.fillStyle = `rgba(255, 255, 200, ${glowAlpha})`;
         ctx.beginPath();
-        ctx.arc(egg.x * TILE + TILE / 2, (egg.y + UI_ROWS) * TILE + TILE / 2 + bob, TILE / 2, 0, Math.PI * 2);
+        ctx.arc((egg.x + oC) * TILE + TILE / 2, (egg.y + oR + UI_ROWS) * TILE + TILE / 2 + bob, TILE / 2, 0, Math.PI * 2);
         ctx.fill();
 
         drawSprite(EGG_SPRITES[egg.type], px, py, TILE * 0.75);
@@ -1099,13 +1356,18 @@
     }
 
     function drawDragons() {
+      let oC = 0, oR = 0;
+      if (state.inSecretRoom && state.secretRoomMap) {
+        oC = Math.floor((COLS - state.secretRoomMap[0].length) / 2);
+        oR = Math.floor((MAP_ROWS - state.secretRoomMap.length) / 2);
+      }
       for (let i = 0; i < state.dragons.length; i++) {
         const d = state.dragons[i];
         const bounce = Math.sin(state.time * 4 + i * 0.8) * 2;
         drawSprite(
           DRAGON_SPRITES[d.type],
-          d.x * TILE + 6,
-          (d.y + UI_ROWS) * TILE + bounce + 4,
+          (d.x + oC) * TILE + 6,
+          (d.y + oR + UI_ROWS) * TILE + bounce + 4,
           TILE * 0.6
         );
       }
@@ -1120,7 +1382,11 @@
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 14px monospace';
       ctx.textAlign = 'left';
-      ctx.fillText(ZONES[state.currentZone].name, 10, 20);
+      if (state.inSecretRoom && state.secretRoomZone) {
+        ctx.fillText(SECRETS[state.secretRoomZone].room.name, 10, 20);
+      } else {
+        ctx.fillText(ZONES[state.currentZone].name, 10, 20);
+      }
 
       // Dragon collection icons (9 types: fire, nature, love, shadow, star, ice, ghost, thorn, rainbow)
       const allTypes = ['fire', 'nature', 'love', 'shadow', 'star', 'ice', 'ghost', 'thorn', 'rainbow'];
@@ -1205,6 +1471,48 @@
       ctx.moveTo(0, UI_ROWS * TILE);
       ctx.lineTo(CANVAS_W, UI_ROWS * TILE);
       ctx.stroke();
+    }
+
+    function drawQuests() {
+      if (!state.quests || state.quests.length === 0) return;
+
+      const x = CANVAS_W - 10;
+      let y = 50;
+
+      ctx.textAlign = 'right';
+      ctx.font = '9px monospace';
+      ctx.fillStyle = '#888';
+      ctx.fillText('Quests (' + state.stars + ' \u2605)', x, y);
+      y += 14;
+
+      for (const q of state.quests) {
+        if (q.completed) {
+          ctx.fillStyle = '#FFD700';
+          ctx.fillText('\u2605 ' + q.text, x, y);
+        } else {
+          ctx.fillStyle = '#aaa';
+          ctx.fillText('\u25CB ' + q.text, x, y);
+        }
+        y += 12;
+      }
+
+      // Quest complete animation
+      if (state.questComplete) {
+        state.questComplete.timer -= 1 / 60;
+        const t = state.questComplete.timer;
+        if (t > 0) {
+          ctx.globalAlpha = Math.min(1, t);
+          ctx.fillStyle = '#FFD700';
+          ctx.font = 'bold 16px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('Quest Complete!', CANVAS_W / 2, CANVAS_H / 2 - 40);
+          ctx.font = '12px monospace';
+          ctx.fillText(state.questComplete.text, CANVAS_W / 2, CANVAS_H / 2 - 20);
+          ctx.globalAlpha = 1;
+        } else {
+          state.questComplete = null;
+        }
+      }
     }
 
     function drawUnlockEffect() {
@@ -1305,6 +1613,19 @@
     };
     state.dragonSelectPlayer = 0;
     state.dragonSelectIndex = 0;
+
+    // Secret room state
+    state.inSecretRoom = false;
+    state.secretRoomZone = null;
+    state.secretRoomMap = null;
+    state.secretRoomFound = {};
+    state.secretPathActive = {};
+    state.secretPathTimer = {};
+
+    // Quest state
+    state.quests = [];
+    state.stars = parseInt(localStorage.getItem('dragonIslandStars') || '0');
+    state.questComplete = null;
 
     // ============================================================
     // FIREBASE NETWORKING
@@ -1889,6 +2210,7 @@
     }
 
     function checkZoneTransition() {
+      if (state.inSecretRoom) return; // no zone transitions from secret rooms
       for (const conn of ZONE_CONNECTIONS) {
         if (state.currentZone !== conn.from) continue;
         if (conn.unlockRequired && !state.unlockedZones.includes(conn.to)) continue;
@@ -1920,6 +2242,7 @@
       }
       state.particles = [];
       spawnEggsForZone(zoneKey);
+      checkQuests();
     }
 
     function checkEggCollection() {
@@ -1935,10 +2258,106 @@
               phase: 'wobble',
             });
             state.eggs.splice(i, 1);
+            checkQuests();
             break;
           }
         }
       }
+
+      // Activate secret path when all eggs collected in a zone (adventure mode)
+      if (state.eggs.length === 0 && state.hatching.length === 0 && !state.inSecretRoom && !state.secretPathActive[state.currentZone] && state.mode === 'adventure') {
+        state.secretPathActive[state.currentZone] = true;
+        state.secretPathTimer[state.currentZone] = 0;
+      }
+    }
+
+    // ============================================================
+    // SECRET ROOM FUNCTIONS
+    // ============================================================
+    function checkSecretTiles() {
+      if (state.inSecretRoom) return;
+      const secret = SECRETS[state.currentZone];
+      if (!secret) return;
+
+      const activePlayers = getActivePlayers();
+      for (const p of activePlayers) {
+        // Check discoverable secret tiles
+        for (const st of secret.secretTiles) {
+          if (p.x === st.col && p.y === st.row && !state.secretRoomFound[state.currentZone]) {
+            enterSecretRoom(state.currentZone);
+            return;
+          }
+        }
+
+        // Check earned secret path
+        if (state.secretPathActive[state.currentZone]) {
+          const pathCol = 12;
+          const pathRow = 8;
+          if (p.x === pathCol && p.y === pathRow) {
+            enterSecretRoom(state.currentZone);
+            return;
+          }
+        }
+      }
+    }
+
+    function checkSecretRoomExit() {
+      if (!state.inSecretRoom || !state.secretRoomMap) return;
+      const map = state.secretRoomMap;
+      const activePlayers = getActivePlayers();
+      for (const p of activePlayers) {
+        const h = map.length;
+        if (p.y === h - 1 && p.x >= 4 && p.x <= 5) {
+          exitSecretRoom();
+          return;
+        }
+      }
+    }
+
+    function enterSecretRoom(zoneKey) {
+      state.inSecretRoom = true;
+      state.secretRoomZone = zoneKey;
+      state.secretRoomMap = generateSecretRoom(zoneKey);
+      state.secretRoomFound[zoneKey] = true;
+
+      const activePlayers = getActivePlayers();
+      for (let i = 0; i < activePlayers.length; i++) {
+        activePlayers[i].x = 4 + i;
+        activePlayers[i].y = 6;
+      }
+
+      state.eggs = [];
+      const secret = SECRETS[zoneKey];
+      for (let i = 0; i < secret.room.eggCount; i++) {
+        const type = secret.room.eggs[i % secret.room.eggs.length];
+        state.eggs.push({
+          type: type,
+          x: 3 + i * 3,
+          y: 3,
+          bobOffset: Math.random() * Math.PI * 2,
+        });
+      }
+
+      state.particles = [];
+      checkQuests();
+    }
+
+    function exitSecretRoom() {
+      state.inSecretRoom = false;
+      state.secretRoomMap = null;
+
+      const secret = SECRETS[state.secretRoomZone];
+      if (secret && secret.secretTiles.length > 0) {
+        const st = secret.secretTiles[0];
+        const activePlayers = getActivePlayers();
+        for (let i = 0; i < activePlayers.length; i++) {
+          activePlayers[i].x = st.col + i;
+          activePlayers[i].y = Math.min(st.row + 1, MAP_ROWS - 2);
+        }
+      }
+
+      state.secretRoomZone = null;
+      spawnEggsForZone(state.currentZone);
     }
 
     function updateDragons(dt) {
@@ -2020,6 +2439,7 @@
           });
 
           checkUnlocks();
+          checkQuests();
 
           state.hatching.splice(i, 1);
 
@@ -2032,9 +2452,14 @@
     }
 
     function drawHatching() {
+      let oC = 0, oR = 0;
+      if (state.inSecretRoom && state.secretRoomMap) {
+        oC = Math.floor((COLS - state.secretRoomMap[0].length) / 2);
+        oR = Math.floor((MAP_ROWS - state.secretRoomMap.length) / 2);
+      }
       for (const h of state.hatching) {
-        const px = h.x * TILE;
-        const py = (h.y + UI_ROWS) * TILE;
+        const px = (h.x + oC) * TILE;
+        const py = (h.y + oR + UI_ROWS) * TILE;
 
         if (h.phase === 'wobble') {
           const wobble = Math.sin(h.timer * 20) * 3;
@@ -2066,8 +2491,25 @@
     }
 
     function isSolid(zoneKey, col, row) {
+      if (state.inSecretRoom && state.secretRoomMap) {
+        const w = state.secretRoomMap[0].length;
+        const h = state.secretRoomMap.length;
+        if (col < 0 || col >= w || row < 0 || row >= h) return true;
+        const tile = state.secretRoomMap[row][col];
+        if (!tile) return true;
+        return SOLID_TILES.includes(tile);
+      }
+
       const zone = ZONES[zoneKey];
       if (col < 0 || col >= COLS || row < 0 || row >= MAP_ROWS) return true;
+
+      // Check if this is a secret tile (walkable even though it looks solid)
+      if (SECRETS[zoneKey]) {
+        for (const st of SECRETS[zoneKey].secretTiles) {
+          if (st.col === col && st.row === row) return false;
+        }
+      }
+
       const tile = zone.map[row][col];
       return SOLID_TILES.includes(tile);
     }
@@ -2491,7 +2933,17 @@
         players[1].y = 7;
       }
 
+      // Secret room state reset
+      state.inSecretRoom = false;
+      state.secretRoomZone = null;
+      state.secretRoomMap = null;
+      state.secretRoomFound = {};
+      state.secretPathActive = {};
+      state.secretPathTimer = {};
+      state.questComplete = null;
+
       spawnEggsForZone('meadow');
+      initQuests();
 
       // Start online sync if host
       if (state.isHost) {
@@ -6072,11 +6524,18 @@
           // Host or local: run all game logic
           updatePlayers(dt);
           checkZoneTransition();
+          checkSecretTiles();
+          checkSecretRoomExit();
           checkEggCollection();
           updateHatching(dt);
           updateDragons(dt);
           updateUnlockEffect(dt);
           updateParticles(dt);
+
+          // Update secret path timers
+          for (const zk in state.secretPathTimer) {
+            if (state.secretPathActive[zk]) state.secretPathTimer[zk] += dt;
+          }
         }
 
         updateRideButtons();
@@ -6091,6 +6550,7 @@
         drawEggs();
         drawHatching();
         drawUI();
+        drawQuests();
         drawUnlockEffect();
 
         // Online connection status overlay
