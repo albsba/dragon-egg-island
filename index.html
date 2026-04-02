@@ -736,10 +736,10 @@
     ];
 
     const ZONES = {
-      meadow: { map: ZONE_FLOWER_MEADOW, name: 'Flower Meadow', eggs: ['fire', 'nature'] },
+      meadow: { map: ZONE_FLOWER_MEADOW, name: 'Flower Meadow', eggs: ['fire', 'nature', 'thorn'] },
       heart:  { map: ZONE_HEART_FOREST,  name: 'Heart Forest',  eggs: ['love'] },
-      enchanted: { map: ZONE_ENCHANTED_FOREST, name: 'Enchanted Forest', eggs: ['nature', 'shadow'] },
-      crystal: { map: ZONE_CRYSTAL_CAVE, name: 'Crystal Cave', eggs: ['star', 'ice'] },
+      enchanted: { map: ZONE_ENCHANTED_FOREST, name: 'Enchanted Forest', eggs: ['nature', 'shadow', 'ghost', 'thorn'] },
+      crystal: { map: ZONE_CRYSTAL_CAVE, name: 'Crystal Cave', eggs: ['star', 'ice', 'ghost'] },
       snowy: { map: ZONE_SNOWY_MOUNTAIN, name: 'Snowy Mountain', eggs: ['ice', 'star'] },
       volcano: { map: ZONE_VOLCANO_RIDGE, name: 'Volcano Ridge', eggs: ['fire', 'shadow'] },
       rainbow: { map: ZONE_RAINBOW_FALLS, name: 'Rainbow Falls', eggs: ['rainbow'] },
@@ -828,6 +828,8 @@
       shadow: makeEggSprite('#7E57C2', '#5E35B1', '#B39DDB'),
       star:   makeEggSprite('#FFD700', '#FFC107', '#FFF9C4'),
       ice:    makeEggSprite('#81D4FA', '#4FC3F7', '#E0F7FA'),
+      ghost:  makeEggSprite('#B0BEC5', '#90A4AE', '#ECEFF1'),
+      thorn:  makeEggSprite('#558B2F', '#33691E', '#8BC34A'),
       rainbow: makeEggSprite('#FF6B6B', '#4ECDC4', '#FFE66D'),
     };
 
@@ -851,6 +853,8 @@
       shadow:  makeDragonSprite('#5E35B1', '#B39DDB', '#EDE7F6'),
       star:    makeDragonSprite('#FFC107', '#FFF9C4', '#333'),
       ice:     makeDragonSprite('#4FC3F7', '#E0F7FA', '#333'),
+      ghost:   makeDragonSprite('#B0BEC5', '#ECEFF1', '#CFD8DC'),
+      thorn:   makeDragonSprite('#33691E', '#8BC34A', '#333'),
       rainbow: makeDragonSprite('#FF6B6B', '#FFE66D', '#333'),
     };
 
@@ -1118,15 +1122,16 @@
       ctx.textAlign = 'left';
       ctx.fillText(ZONES[state.currentZone].name, 10, 20);
 
-      // Dragon collection icons
-      const allTypes = ['fire', 'nature', 'love', 'shadow', 'star', 'ice', 'rainbow'];
+      // Dragon collection icons (9 types: fire, nature, love, shadow, star, ice, ghost, thorn, rainbow)
+      const allTypes = ['fire', 'nature', 'love', 'shadow', 'star', 'ice', 'ghost', 'thorn', 'rainbow'];
       const startX = 10;
       const y = 34;
+      const iconSpacing = 70; // tighter spacing to fit 9 types
 
       for (let i = 0; i < allTypes.length; i++) {
         const type = allTypes[i];
         const count = state.collection[type] || 0;
-        const x = startX + i * 80;
+        const x = startX + i * iconSpacing;
 
         if (count > 0) {
           drawSprite(DRAGON_SPRITES[type], x, y - 6, 20);
@@ -1961,17 +1966,23 @@
 
       const totalCollected = Object.values(state.collection).reduce((a, b) => a + b, 0);
 
+      // Count unique non-rainbow types collected (need all 8 for rainbow zone)
+      const nonRainbowTypes = ['fire', 'nature', 'love', 'shadow', 'star', 'ice', 'ghost', 'thorn'];
+      const uniqueTypesCollected = nonRainbowTypes.filter(t => (state.collection[t] || 0) > 0).length;
+
       const unlockThresholds = [
         { zone: 'heart', count: 5 },
         { zone: 'enchanted', count: 8 },
         { zone: 'crystal', count: 12 },
         { zone: 'snowy', count: 16 },
         { zone: 'volcano', count: 20 },
-        { zone: 'rainbow', count: 25 },
+        { zone: 'rainbow', count: 25, uniqueTypes: 8 },
       ];
 
       for (const u of unlockThresholds) {
-        if (totalCollected >= u.count && !state.unlockedZones.includes(u.zone)) {
+        const meetsCount = totalCollected >= u.count;
+        const meetsTypes = !u.uniqueTypes || uniqueTypesCollected >= u.uniqueTypes;
+        if (meetsCount && meetsTypes && !state.unlockedZones.includes(u.zone)) {
           state.unlockedZones.push(u.zone);
           state.unlockEffect = { timer: 0, zone: u.zone };
         }
@@ -2590,6 +2601,8 @@
       love:    { name: 'Love Dragon',    color: '#E91E63', shotSpeed: 300, shotRate: 3, shotType: 'wide',    superName: 'Heal Wave' },
       shadow:  { name: 'Shadow Dragon',  color: '#5E35B1', shotSpeed: 500, shotRate: 4.5, shotType: 'single', superName: 'Shadow Cloak' },
       star:    { name: 'Star Dragon',    color: '#FFC107', shotSpeed: 400, shotRate: 3.5, shotType: 'bounce', superName: 'Supernova' },
+      ghost:   { name: 'Ghost Dragon',   color: '#B0BEC5', shotSpeed: 450, shotRate: 5, shotType: 'phase',   superName: 'Phantom Blast' },
+      thorn:   { name: 'Thorn Dragon',   color: '#558B2F', shotSpeed: 350, shotRate: 3, shotType: 'thorn',   superName: 'Thorn Storm' },
       rainbow: { name: 'Rainbow Dragon', color: '#FF6B6B', shotSpeed: 350, shotRate: 6, shotType: 'beam',    superName: 'Rainbow Wave' },
     };
 
@@ -3369,6 +3382,12 @@
         case 'beam':
           shots.push({ x: x, y: y, vx: 0, vy: -spd, color: col, owner: playerId, pierce: true, beam: true, giant: g });
           break;
+        case 'phase':
+          shots.push({ ...{ x, y, vx: 0, vy: -spd, color: col, owner: playerId, giant: g }, pierce: true, phase: true });
+          break;
+        case 'thorn':
+          shots.push({ ...{ x, y, vx: (Math.random() - 0.5) * 20, vy: -spd, color: col, owner: playerId, giant: g }, pierce: false, thorn: true });
+          break;
       }
     }
 
@@ -3392,6 +3411,19 @@
             s.vx = -s.vx;
             s.bounces--;
           }
+        }
+
+        // Phase shots wrap around screen edges instead of being removed
+        if (s.phase) {
+          if (s.y < -20) { s.y = CANVAS_H + 10; }
+          if (s.y > CANVAS_H + 20) { s.y = -10; }
+          if (s.x < -20) { s.x = CANVAS_W + 10; }
+          if (s.x > CANVAS_W + 20) { s.x = -10; }
+          // Phase shots expire after 2 full seconds
+          if (!s.phaseTime) s.phaseTime = 0;
+          s.phaseTime += shotDt;
+          if (s.phaseTime > 2) { shots.splice(i, 1); }
+          continue;
         }
 
         // Remove if off-screen
@@ -3918,6 +3950,30 @@
               }
             }
 
+            // Thorn mechanic: thorns stick to enemies; 3 thorns = explosion
+            if (s.thorn) {
+              shots.splice(si, 1);
+              if (!e.curing) {
+                e.thorns = (e.thorns || 0) + 1;
+                if (e.thorns >= 3) {
+                  // Explosion: 2 damage to all enemies within 60px
+                  for (const ne of state.battle.enemies) {
+                    if (!ne.curing) {
+                      const dx = ne.x - e.x;
+                      const dy = ne.y - e.y;
+                      if (Math.sqrt(dx * dx + dy * dy) <= 60) {
+                        ne.hp -= 2;
+                        if (ne.hp <= 0) { ne.curing = true; ne.cureTimer = 0; }
+                      }
+                    }
+                  }
+                  state.battle.effects.push({ type: 'thornExplosion', x: e.x, y: e.y, timer: 0.6, maxTimer: 0.6 });
+                  e.thorns = 0;
+                }
+              }
+              break;
+            }
+
             if (!s.pierce) {
               shots.splice(si, 1);
               break;
@@ -3935,14 +3991,17 @@
         const py = BATTLE_PLAYER_Y;
         const pr = b.giantDragon > 0 ? 28 : 14; // player radius (bigger when giant)
 
-        // Check enemies
-        for (const e of enemies) {
-          if (e.curing) continue;
-          const es = e.size / 2;
-          if (px - pr < e.x + es && px + pr > e.x - es &&
-              py - pr < e.y + es && py + pr > e.y - es) {
-            hitBattlePlayer(pi);
-            break;
+        // Check enemies (skip if any phantom super is active)
+        const phantomActive = state.battle.superActive.some(sa => sa && sa.type === 'phantom');
+        if (!phantomActive) {
+          for (const e of enemies) {
+            if (e.curing) continue;
+            const es = e.size / 2;
+            if (px - pr < e.x + es && px + pr > e.x - es &&
+                py - pr < e.y + es && py + pr > e.y - es) {
+              hitBattlePlayer(pi);
+              break;
+            }
           }
         }
 
@@ -4233,7 +4292,41 @@
         }
 
         const gMult = s.giant ? 3 : 1;
-        if (s.beam) {
+        if (s.phase) {
+          // Ghostly phase shot: semi-transparent with trailing wisp
+          ctx.globalAlpha = 0.6;
+          ctx.fillStyle = '#ECEFF1';
+          ctx.beginPath();
+          ctx.arc(s.x, s.y + 8 * gMult, 2 * gMult, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#B0BEC5';
+          ctx.beginPath();
+          ctx.arc(s.x, s.y + 4 * gMult, 2.5 * gMult, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#ECEFF1';
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, 3.5 * gMult, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        } else if (s.thorn) {
+          // Thorn shot: small green spike/triangle
+          ctx.fillStyle = '#558B2F';
+          ctx.save();
+          ctx.translate(s.x, s.y);
+          ctx.rotate(Math.PI); // point upward
+          ctx.beginPath();
+          const ts = 5 * gMult;
+          ctx.moveTo(0, -ts * 1.5);
+          ctx.lineTo(ts * 0.6, ts * 0.5);
+          ctx.lineTo(-ts * 0.6, ts * 0.5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = '#8BC34A';
+          ctx.beginPath();
+          ctx.arc(s.x - s.x + 0, s.y - s.y + 0, ts * 0.3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        } else if (s.beam) {
           ctx.fillStyle = s.color;
           ctx.fillRect(s.x - 2 * gMult, s.y - 8 * gMult, 4 * gMult, 16 * gMult);
         } else if (s.wide) {
@@ -5374,6 +5467,117 @@
             ctx.globalAlpha = 1;
             break;
           }
+
+          case 'phantomBlast': {
+            // GHOST: ghostly white ripples expanding outward, transparent overlay
+            ctx.globalAlpha = alpha * 0.18;
+            ctx.fillStyle = 'rgba(176, 190, 197, 1)';
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+            ctx.globalAlpha = 1;
+
+            // Ghost ripples expanding outward
+            const pcx = CANVAS_W / 2, pcy = CANVAS_H / 2;
+            for (let rp = 0; rp < 4; rp++) {
+              const rpP = (progress + rp * 0.25) % 1;
+              const rpR = rpP * Math.max(CANVAS_W, CANVAS_H) * 0.75;
+              ctx.globalAlpha = (1 - rpP) * alpha * 0.55;
+              ctx.strokeStyle = rp % 2 === 0 ? 'rgba(236,239,241,1)' : 'rgba(176,190,197,1)';
+              ctx.lineWidth = 4;
+              ctx.beginPath();
+              ctx.arc(pcx, pcy, rpR, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+
+            // Floating ghost wisps
+            for (let gw = 0; gw < 12; gw++) {
+              const gwx = ((gw * 113.7 + 30) % CANVAS_W);
+              const gwRise = progress * 80 * (0.5 + (gw % 3) * 0.25);
+              const gwy = CANVAS_H * 0.5 + ((gw * 57.3) % (CANVAS_H * 0.4)) - gwRise;
+              if (gwy < 0) continue;
+              ctx.globalAlpha = alpha * 0.7 * (1 - progress * 0.5);
+              ctx.fillStyle = '#ECEFF1';
+              ctx.font = (14 + gw % 8) + 'px serif';
+              ctx.textAlign = 'center';
+              ctx.fillText('\u25CB', gwx, gwy); // open circle for wisp
+            }
+
+            // Pale vignette
+            ctx.globalAlpha = alpha * 0.3;
+            const pEdge = 45;
+            ctx.fillStyle = 'rgba(176,190,197,1)';
+            ctx.fillRect(0, 0, pEdge, CANVAS_H);
+            ctx.fillRect(CANVAS_W - pEdge, 0, pEdge, CANVAS_H);
+            ctx.fillRect(0, 0, CANVAS_W, pEdge);
+            ctx.fillRect(0, CANVAS_H - pEdge, CANVAS_W, pEdge);
+            ctx.globalAlpha = 1;
+            break;
+          }
+
+          case 'thornStorm': {
+            // THORN: green thorn shapes raining from top, green flash
+            ctx.globalAlpha = alpha * 0.22;
+            ctx.fillStyle = 'rgba(51, 105, 30, 1)';
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+            ctx.globalAlpha = 1;
+
+            // Green flash border
+            ctx.globalAlpha = alpha * 0.4;
+            const tEdge = 50;
+            ctx.fillStyle = 'rgba(85,139,47,1)';
+            ctx.fillRect(0, 0, tEdge, CANVAS_H);
+            ctx.fillRect(CANVAS_W - tEdge, 0, tEdge, CANVAS_H);
+            ctx.fillRect(0, 0, CANVAS_W, tEdge);
+            ctx.fillRect(0, CANVAS_H - tEdge, CANVAS_W, tEdge);
+            ctx.globalAlpha = 1;
+
+            // Thorns raining down
+            for (let th = 0; th < 35; th++) {
+              const thx = ((th * 97.3 + 15) % CANVAS_W);
+              const thDrop = (progress * 1.2 + th * 0.03) % 1;
+              const thy = thDrop * (CANVAS_H + 20) - 10;
+              if (thy < 0) continue;
+              ctx.globalAlpha = alpha * 0.85;
+              ctx.fillStyle = th % 3 === 0 ? '#558B2F' : th % 3 === 1 ? '#33691E' : '#8BC34A';
+              ctx.save();
+              ctx.translate(thx, thy);
+              ctx.rotate(Math.PI + (th % 5) * 0.3);
+              const ths = 6 + th % 5;
+              ctx.beginPath();
+              ctx.moveTo(0, -ths * 1.8);
+              ctx.lineTo(ths * 0.5, ths * 0.6);
+              ctx.lineTo(-ths * 0.5, ths * 0.6);
+              ctx.closePath();
+              ctx.fill();
+              ctx.restore();
+            }
+            ctx.globalAlpha = 1;
+            break;
+          }
+
+          case 'thornExplosion': {
+            // Small thorn burst when 3 thorns explode on an enemy
+            for (let te = 0; te < 8; te++) {
+              const angle = (te / 8) * Math.PI * 2;
+              const dist = progress * 45;
+              const tex = e.x + Math.cos(angle) * dist;
+              const tey = e.y + Math.sin(angle) * dist;
+              ctx.globalAlpha = alpha * 0.9;
+              ctx.fillStyle = te % 2 === 0 ? '#558B2F' : '#8BC34A';
+              ctx.save();
+              ctx.translate(tex, tey);
+              ctx.rotate(angle);
+              ctx.beginPath();
+              ctx.moveTo(0, -6 * alpha);
+              ctx.lineTo(3 * alpha, 3 * alpha);
+              ctx.lineTo(-3 * alpha, 3 * alpha);
+              ctx.closePath();
+              ctx.fill();
+              ctx.restore();
+            }
+            ctx.globalAlpha = 1;
+            break;
+          }
         }
       }
 
@@ -5673,6 +5877,21 @@
           }
           triggerScreenShake(8, 0.5);
           state.battle.effects.push({ x: 0, y: 0, type: 'rainbowWave', timer: 2.0, maxTimer: 2.0 });
+          break;
+        }
+        case 'ghost': {
+          // Phantom Blast: all enemies become phased for 3 seconds (can't hurt players)
+          state.battle.superActive[playerIdx] = { type: 'phantom', timer: 3 };
+          state.battle.effects.push({ type: 'phantomBlast', x: CANVAS_W / 2, y: CANVAS_H / 2, timer: 2.0, maxTimer: 2.0 });
+          break;
+        }
+        case 'thorn': {
+          // Thorn Storm: thorns rain from sky, 2 damage to all
+          for (const e of enemies) {
+            if (!e.curing) { e.hp -= 2; if (e.hp <= 0) { e.curing = true; e.cureTimer = 0; } }
+          }
+          state.battle.effects.push({ type: 'thornStorm', x: CANVAS_W / 2, y: CANVAS_H / 2, timer: 2.0, maxTimer: 2.0 });
+          triggerScreenShake(6, 0.4);
           break;
         }
       }
