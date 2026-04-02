@@ -403,6 +403,10 @@
     <!-- Step: online -->
     <button class="title-touch-btn" id="btn-create-room" style="display:none;">Create Room</button>
     <button class="title-touch-btn" id="btn-join-room" style="display:none;">Join Room</button>
+    <!-- Step: customize -->
+    <button class="title-touch-btn" id="btn-customize" style="display:none;">Customize Characters</button>
+    <button class="title-touch-btn" id="btn-custom-switch" style="display:none;">Switch Character</button>
+    <button class="title-touch-btn" id="btn-custom-done" style="display:none;">Done</button>
   </div>
 
   <!-- Room code overlay (for hosting/joining) -->
@@ -1122,6 +1126,87 @@
       }
     }
 
+    // ============================================================
+    // CHARACTER CUSTOMIZATION - Color Palettes & Helpers
+    // ============================================================
+    const HAIR_COLORS = [
+      { name: 'Light Blue', color: '#87CEEB' },
+      { name: 'Purple', color: '#9B59B6' },
+      { name: 'Pink', color: '#FF69B4' },
+      { name: 'Blonde', color: '#FFD700' },
+      { name: 'Red', color: '#E74C3C' },
+      { name: 'Brown', color: '#8B4513' },
+      { name: 'Black', color: '#333333' },
+      { name: 'Green', color: '#27AE60' },
+      { name: 'White', color: '#F5F5F5' },
+      { name: 'Orange', color: '#FF9800' },
+    ];
+
+    const OUTFIT_COLORS = [
+      { name: 'Powder Blue', color: '#B0E0E6' },
+      { name: 'Purple', color: '#8E44AD' },
+      { name: 'Pink', color: '#FF69B4' },
+      { name: 'Red', color: '#E74C3C' },
+      { name: 'Yellow', color: '#F1C40F' },
+      { name: 'Green', color: '#2ECC71' },
+      { name: 'Orange', color: '#FF9800' },
+      { name: 'White', color: '#ECF0F1' },
+      { name: 'Black', color: '#2C3E50' },
+      { name: 'Teal', color: '#1ABC9C' },
+    ];
+
+    function lightenColor(hex, percent) {
+      const num = parseInt(hex.replace('#',''), 16);
+      const r = Math.min(255, (num >> 16) + percent);
+      const g = Math.min(255, ((num >> 8) & 0xFF) + percent);
+      const b = Math.min(255, (num & 0xFF) + percent);
+      return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+    }
+
+    function makeCharacterSprite(hairColor, hairDark, outfitColor, outfitLight, skinColor, accentColor) {
+      return [
+        ['','','',hairColor,hairColor,hairColor,hairColor,'','',''],
+        ['','',hairColor,hairColor,hairColor,hairColor,hairColor,hairColor,'',''],
+        ['','',hairColor,skinColor,skinColor,skinColor,skinColor,hairColor,'',''],
+        ['','',skinColor,skinColor,skinColor,skinColor,skinColor,skinColor,'',''],
+        ['','',skinColor,'#333','','','#333',skinColor,'',''],
+        ['','',skinColor,'','','','',skinColor,'',''],
+        ['','','',skinColor,'#f9a','#f9a',skinColor,'','',''],
+        ['','',outfitColor,outfitColor,outfitColor,outfitColor,outfitColor,outfitColor,'',''],
+        ['',skinColor,outfitColor,outfitColor,outfitColor,outfitColor,outfitColor,outfitColor,skinColor,''],
+        ['','',outfitColor,outfitColor,outfitLight,outfitColor,outfitColor,outfitColor,'',''],
+        ['','','',accentColor,'','',accentColor,'','',''],
+        ['','','','#654','','','#654','','',''],
+      ];
+    }
+
+    function applyCustomization() {
+      const hc = state.customization.harper;
+      const ac = state.customization.audrey;
+
+      const harperHair = HAIR_COLORS[hc.hairIndex].color;
+      const harperOutfit = OUTFIT_COLORS[hc.outfitIndex].color;
+      const harperOutfitLight = lightenColor(harperOutfit, 30);
+      const harperAccent = '#5b8';
+
+      SPRITES.harper = makeCharacterSprite(harperHair, harperHair, harperOutfit, harperOutfitLight, '#FFDAB9', harperAccent);
+
+      const audreyHair = HAIR_COLORS[ac.hairIndex].color;
+      const audreyOutfit = OUTFIT_COLORS[ac.outfitIndex].color;
+      const audreyOutfitLight = lightenColor(audreyOutfit, 30);
+      const audreyAccent = '#c6e';
+
+      SPRITES.audrey = makeCharacterSprite(audreyHair, audreyHair, audreyOutfit, audreyOutfitLight, '#FFDAB9', audreyAccent);
+
+      // Update player colors to match hair (players array may not exist yet at load time)
+      if (typeof players !== 'undefined') {
+        players[0].color = harperHair;
+        players[1].color = audreyHair;
+        players[0].sprite = SPRITES.harper;
+        players[1].sprite = SPRITES.audrey;
+      }
+    }
+
     function makeEggSprite(color1, color2, shine) {
       return [
         ['','','',color1,color1,'','',''],
@@ -1192,6 +1277,9 @@
     window.addEventListener('keydown', (e) => {
       keys[e.key] = true;
       if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) {
+        e.preventDefault();
+      }
+      if (e.key === 'Tab' && state.screen === 'customize') {
         e.preventDefault();
       }
       // R key: toggle ride for P1 (player 0), F key: toggle ride for P2 (player 1)
@@ -1778,6 +1866,9 @@
       },
     ];
 
+    // Re-apply customization now that players array exists
+    applyCustomization();
+
     state.currentZone = 'meadow';
     state.unlockedZones = ['meadow'];
     state.collection = {};
@@ -1864,6 +1955,26 @@
     state.quests = [];
     state.stars = parseInt(localStorage.getItem('dragonIslandStars') || '0');
     state.questComplete = null;
+
+    // Character customization state
+    state.customization = {
+      harper: { hairIndex: 0, outfitIndex: 0 },
+      audrey: { hairIndex: 1, outfitIndex: 1 },
+    };
+    state.customizeEditing = 0;   // 0 = Harper, 1 = Audrey
+    state.customizeRow = 0;       // 0 = hair, 1 = outfit
+    state.customizeColorIndex = 0;
+
+    // Load saved customization
+    try {
+      const savedCustom = localStorage.getItem('dragonIslandCustom');
+      if (savedCustom) {
+        const parsed = JSON.parse(savedCustom);
+        if (parsed.harper) state.customization.harper = parsed.harper;
+        if (parsed.audrey) state.customization.audrey = parsed.audrey;
+      }
+      applyCustomization();
+    } catch(e) {}
 
     // ============================================================
     // FIREBASE NETWORKING
@@ -2874,6 +2985,250 @@
     }
 
     // ============================================================
+    // CHARACTER CUSTOMIZATION SCREEN
+    // ============================================================
+    function drawCustomizeScreen() {
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+      // Stars background
+      for (var i = 0; i < 50; i++) {
+        var sx = (Math.sin(i * 127.1) * 0.5 + 0.5) * CANVAS_W;
+        var sy = (Math.cos(i * 311.7) * 0.5 + 0.5) * CANVAS_H;
+        var twinkle = Math.sin(state.time * 2 + i) * 0.5 + 0.5;
+        ctx.fillStyle = 'rgba(255, 255, 255, ' + (twinkle * 0.5) + ')';
+        ctx.fillRect(sx, sy, 2, 2);
+      }
+
+      // Title
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 22px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Customize Characters', CANVAS_W / 2, 40);
+
+      var editing = state.customizeEditing;
+      var editName = editing === 0 ? 'Harper' : 'Audrey';
+      var custom = editing === 0 ? state.customization.harper : state.customization.audrey;
+
+      // Highlight which character is being edited
+      ctx.fillStyle = editing === 0 ? players[0].color : players[1].color;
+      ctx.font = 'bold 16px monospace';
+      ctx.fillText('Editing: ' + editName, CANVAS_W / 2, 70);
+      ctx.font = '11px monospace';
+      ctx.fillStyle = '#888';
+      ctx.fillText('Press Tab or tap Switch to change character', CANVAS_W / 2, 88);
+
+      // Draw both character previews
+      var previewSize = 80;
+      // Harper preview
+      ctx.strokeStyle = editing === 0 ? '#FFD700' : '#444';
+      ctx.lineWidth = editing === 0 ? 3 : 1;
+      ctx.strokeRect(CANVAS_W / 2 - 160, 100, previewSize + 20, previewSize + 40);
+      drawSprite(SPRITES.harper, CANVAS_W / 2 - 150, 110, previewSize);
+      ctx.fillStyle = players[0].color;
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Harper', CANVAS_W / 2 - 110, 210);
+
+      // Audrey preview
+      ctx.strokeStyle = editing === 1 ? '#FFD700' : '#444';
+      ctx.lineWidth = editing === 1 ? 3 : 1;
+      ctx.strokeRect(CANVAS_W / 2 + 60, 100, previewSize + 20, previewSize + 40);
+      drawSprite(SPRITES.audrey, CANVAS_W / 2 + 70, 110, previewSize);
+      ctx.fillStyle = players[1].color;
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Audrey', CANVAS_W / 2 + 110, 210);
+
+      // Hair color selection
+      var selRow = state.customizeRow;
+
+      ctx.fillStyle = selRow === 0 ? '#fff' : '#888';
+      ctx.font = '14px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Hair Color', CANVAS_W / 2, 260);
+
+      for (var hi = 0; hi < HAIR_COLORS.length; hi++) {
+        var hx = CANVAS_W / 2 - (HAIR_COLORS.length * 30) / 2 + hi * 30 + 15;
+        var hy = 280;
+        var hsel = custom.hairIndex === hi;
+
+        ctx.fillStyle = HAIR_COLORS[hi].color;
+        ctx.beginPath();
+        ctx.arc(hx, hy, hsel ? 13 : 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (hsel) {
+          ctx.strokeStyle = '#FFD700';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(hx, hy, 15, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        if (selRow === 0 && state.customizeColorIndex === hi) {
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(hx, hy, 16, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      // Outfit color selection
+      ctx.fillStyle = selRow === 1 ? '#fff' : '#888';
+      ctx.font = '14px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Outfit Color', CANVAS_W / 2, 330);
+
+      for (var oi = 0; oi < OUTFIT_COLORS.length; oi++) {
+        var ox = CANVAS_W / 2 - (OUTFIT_COLORS.length * 30) / 2 + oi * 30 + 15;
+        var oy = 350;
+        var osel = custom.outfitIndex === oi;
+
+        ctx.fillStyle = OUTFIT_COLORS[oi].color;
+        ctx.beginPath();
+        ctx.arc(ox, oy, osel ? 13 : 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (osel) {
+          ctx.strokeStyle = '#FFD700';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(ox, oy, 15, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        if (selRow === 1 && state.customizeColorIndex === oi) {
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(ox, oy, 16, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      // Current color names
+      ctx.fillStyle = '#aaa';
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(HAIR_COLORS[custom.hairIndex].name, CANVAS_W / 2, 310);
+      ctx.fillText(OUTFIT_COLORS[custom.outfitIndex].name, CANVAS_W / 2, 380);
+
+      // Controls hint
+      ctx.fillStyle = '#555';
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Left/Right: pick color | Up/Down: switch row | Tab: switch character', CANVAS_W / 2, CANVAS_H - 45);
+      ctx.fillText('Enter/Esc: done', CANVAS_W / 2, CANVAS_H - 30);
+    }
+
+    function updateCustomizeScreen() {
+      var editing = state.customizeEditing;
+      var custom = editing === 0 ? state.customization.harper : state.customization.audrey;
+      var maxColors = state.customizeRow === 0 ? HAIR_COLORS.length : OUTFIT_COLORS.length;
+
+      if (keys['ArrowLeft'] || keys['a']) {
+        state.customizeColorIndex = (state.customizeColorIndex - 1 + maxColors) % maxColors;
+        if (state.customizeRow === 0) custom.hairIndex = state.customizeColorIndex;
+        else custom.outfitIndex = state.customizeColorIndex;
+        applyCustomization();
+        sfxMenuSelect();
+        keys['ArrowLeft'] = false; keys['a'] = false;
+      }
+      if (keys['ArrowRight'] || keys['d']) {
+        state.customizeColorIndex = (state.customizeColorIndex + 1) % maxColors;
+        if (state.customizeRow === 0) custom.hairIndex = state.customizeColorIndex;
+        else custom.outfitIndex = state.customizeColorIndex;
+        applyCustomization();
+        sfxMenuSelect();
+        keys['ArrowRight'] = false; keys['d'] = false;
+      }
+      if (keys['ArrowUp'] || keys['w']) {
+        state.customizeRow = 0;
+        state.customizeColorIndex = custom.hairIndex;
+        sfxMenuSelect();
+        keys['ArrowUp'] = false; keys['w'] = false;
+      }
+      if (keys['ArrowDown'] || keys['s']) {
+        state.customizeRow = 1;
+        state.customizeColorIndex = custom.outfitIndex;
+        sfxMenuSelect();
+        keys['ArrowDown'] = false; keys['s'] = false;
+      }
+      if (keys['Tab']) {
+        state.customizeEditing = state.customizeEditing === 0 ? 1 : 0;
+        var newCustom = state.customizeEditing === 0 ? state.customization.harper : state.customization.audrey;
+        state.customizeColorIndex = state.customizeRow === 0 ? newCustom.hairIndex : newCustom.outfitIndex;
+        sfxMenuSelect();
+        keys['Tab'] = false;
+      }
+      if (keys['Enter'] || keys['Escape'] || keys[' ']) {
+        // Save and return to title
+        try { localStorage.setItem('dragonIslandCustom', JSON.stringify(state.customization)); } catch(e) {}
+        state.screen = 'title';
+        state.titleStep = 'mode';
+        state.titleSelection = 0;
+        sfxMenuConfirm();
+        keys['Enter'] = false; keys['Escape'] = false; keys[' '] = false;
+        updateTitleTouchUI();
+      }
+    }
+
+    // Handle touch taps on color circles in customize screen
+    canvas.addEventListener('click', function(e) {
+      if (state.screen !== 'customize') return;
+      var rect = canvas.getBoundingClientRect();
+      var scaleX = CANVAS_W / rect.width;
+      var scaleY = CANVAS_H / rect.height;
+      var cx = (e.clientX - rect.left) * scaleX;
+      var cy = (e.clientY - rect.top) * scaleY;
+
+      var custom = state.customizeEditing === 0 ? state.customization.harper : state.customization.audrey;
+
+      // Check hair color circles
+      for (var hi = 0; hi < HAIR_COLORS.length; hi++) {
+        var hx = CANVAS_W / 2 - (HAIR_COLORS.length * 30) / 2 + hi * 30 + 15;
+        var hy = 280;
+        var dist = Math.sqrt((cx - hx) * (cx - hx) + (cy - hy) * (cy - hy));
+        if (dist < 16) {
+          custom.hairIndex = hi;
+          state.customizeRow = 0;
+          state.customizeColorIndex = hi;
+          applyCustomization();
+          sfxMenuSelect();
+          return;
+        }
+      }
+
+      // Check outfit color circles
+      for (var oi = 0; oi < OUTFIT_COLORS.length; oi++) {
+        var ox = CANVAS_W / 2 - (OUTFIT_COLORS.length * 30) / 2 + oi * 30 + 15;
+        var oy = 350;
+        var dist2 = Math.sqrt((cx - ox) * (cx - ox) + (cy - oy) * (cy - oy));
+        if (dist2 < 16) {
+          custom.outfitIndex = oi;
+          state.customizeRow = 1;
+          state.customizeColorIndex = oi;
+          applyCustomization();
+          sfxMenuSelect();
+          return;
+        }
+      }
+
+      // Check character preview tap to switch editing
+      if (cx >= CANVAS_W / 2 - 160 && cx <= CANVAS_W / 2 - 60 && cy >= 100 && cy <= 220) {
+        state.customizeEditing = 0;
+        var hCustom = state.customization.harper;
+        state.customizeColorIndex = state.customizeRow === 0 ? hCustom.hairIndex : hCustom.outfitIndex;
+        sfxMenuSelect();
+      } else if (cx >= CANVAS_W / 2 + 60 && cx <= CANVAS_W / 2 + 160 && cy >= 100 && cy <= 220) {
+        state.customizeEditing = 1;
+        var aCustom = state.customization.audrey;
+        state.customizeColorIndex = state.customizeRow === 0 ? aCustom.hairIndex : aCustom.outfitIndex;
+        sfxMenuSelect();
+      }
+    });
+
+    // ============================================================
     // TITLE SCREEN
     // ============================================================
     function drawTitleScreen() {
@@ -2900,9 +3255,9 @@
       drawSprite(SPRITES.audrey, CANVAS_W / 2 + 32, 120, 48);
 
       ctx.font = '12px monospace';
-      ctx.fillStyle = '#87CEEB';
+      ctx.fillStyle = players[0].color;
       ctx.fillText('Harper', CANVAS_W / 2 - 56, 185);
-      ctx.fillStyle = '#9B59B6';
+      ctx.fillStyle = players[1].color;
       ctx.fillText('Audrey', CANVAS_W / 2 + 56, 185);
 
       if (state.titleStep === 'mode') {
@@ -2915,18 +3270,23 @@
         const onePlayerSel = state.titleSelection === 0;
         const twoLocalSel  = state.titleSelection === 1;
         const twoOnlineSel = state.titleSelection === 2;
+        const customizeSel = state.titleSelection === 3;
 
         ctx.fillStyle = onePlayerSel ? '#FFD700' : '#888';
         ctx.font = (onePlayerSel ? 'bold ' : '') + '22px monospace';
-        ctx.fillText(onePlayerSel ? '> 1 Player <' : '1 Player', CANVAS_W / 2, 290);
+        ctx.fillText(onePlayerSel ? '> 1 Player <' : '1 Player', CANVAS_W / 2, 280);
 
         ctx.fillStyle = twoLocalSel ? '#FFD700' : '#888';
         ctx.font = (twoLocalSel ? 'bold ' : '') + '22px monospace';
-        ctx.fillText(twoLocalSel ? '> 2 Players - Same iPad <' : '2 Players - Same iPad', CANVAS_W / 2, 345);
+        ctx.fillText(twoLocalSel ? '> 2 Players - Same iPad <' : '2 Players - Same iPad', CANVAS_W / 2, 325);
 
         ctx.fillStyle = twoOnlineSel ? '#FFD700' : '#888';
         ctx.font = (twoOnlineSel ? 'bold ' : '') + '22px monospace';
-        ctx.fillText(twoOnlineSel ? '> 2 Players - 2 iPads <' : '2 Players - 2 iPads', CANVAS_W / 2, 400);
+        ctx.fillText(twoOnlineSel ? '> 2 Players - 2 iPads <' : '2 Players - 2 iPads', CANVAS_W / 2, 370);
+
+        ctx.fillStyle = customizeSel ? '#FFD700' : '#777';
+        ctx.font = (customizeSel ? 'bold ' : '') + '16px monospace';
+        ctx.fillText(customizeSel ? '> Customize Characters <' : 'Customize Characters', CANVAS_W / 2, 430);
 
         ctx.fillStyle = '#555';
         ctx.font = '11px monospace';
@@ -3084,7 +3444,7 @@
           sfxMenuSelect();
         }
         if (keys['ArrowDown'] || keys['s']) {
-          state.titleSelection = Math.min(2, state.titleSelection + 1);
+          state.titleSelection = Math.min(3, state.titleSelection + 1);
           keys['ArrowDown'] = false; keys['s'] = false;
           sfxMenuSelect();
         }
@@ -3103,6 +3463,12 @@
             state.playerMode = '2p-online';
             state.titleStep = 'online';
             state.titleSelection = 0;
+          } else if (state.titleSelection === 3) {
+            state.screen = 'customize';
+            state.customizeEditing = 0;
+            state.customizeRow = 0;
+            state.customizeColorIndex = state.customization.harper.hairIndex;
+            updateTitleTouchUI();
           }
           updateTitleTouchUI();
         }
@@ -3663,7 +4029,7 @@
 
     // IDs for each step's buttons
     const TITLE_STEP_BTNS = {
-      mode:      ['btn-1p', 'btn-2p-local', 'btn-2p-online'],
+      mode:      ['btn-1p', 'btn-2p-local', 'btn-2p-online', 'btn-customize'],
       character: ['btn-harper', 'btn-audrey'],
       gametype:  ['btn-adventure', 'btn-freeplay', 'btn-battle', 'btn-flight', 'btn-snake'],
       online:    ['btn-create-room', 'btn-join-room'],
@@ -3675,7 +4041,7 @@
       const rideBtnL = document.getElementById('ride-btn-left');
       const rideBtnR = document.getElementById('ride-btn-right');
 
-      if (state.screen === 'title') {
+      if (state.screen === 'title' || state.screen === 'customize') {
         titleTouchBtns.classList.add('visible');
         dpadLeft.classList.remove('visible');
         dpadRight.classList.remove('visible');
@@ -3686,17 +4052,26 @@
         const allStepBtns = [].concat(
           TITLE_STEP_BTNS.mode,
           TITLE_STEP_BTNS.character,
-          TITLE_STEP_BTNS.gametype
+          TITLE_STEP_BTNS.gametype,
+          ['btn-custom-switch', 'btn-custom-done']
         );
         allStepBtns.forEach(function(id) {
           const el = document.getElementById(id);
           if (el) el.style.display = 'none';
         });
-        const currentBtns = TITLE_STEP_BTNS[state.titleStep] || [];
-        currentBtns.forEach(function(id) {
-          const el = document.getElementById(id);
-          if (el) el.style.display = '';
-        });
+        if (state.screen === 'customize') {
+          // Show customize-specific buttons
+          var customBtnSwitch = document.getElementById('btn-custom-switch');
+          var customBtnDone = document.getElementById('btn-custom-done');
+          if (customBtnSwitch) customBtnSwitch.style.display = '';
+          if (customBtnDone) customBtnDone.style.display = '';
+        } else {
+          const currentBtns = TITLE_STEP_BTNS[state.titleStep] || [];
+          currentBtns.forEach(function(id) {
+            const el = document.getElementById(id);
+            if (el) el.style.display = '';
+          });
+        }
       } else {
         titleTouchBtns.classList.remove('visible');
         // Hide d-pads on dragon select screen (uses its own controls)
@@ -3831,6 +4206,31 @@
 
     titleTouchBtn('btn-join-room', function() {
       showRoomOverlayJoin();
+    });
+
+    titleTouchBtn('btn-customize', function() {
+      state.screen = 'customize';
+      state.customizeEditing = 0;
+      state.customizeRow = 0;
+      state.customizeColorIndex = state.customization.harper.hairIndex;
+      sfxMenuConfirm();
+      updateTitleTouchUI();
+    });
+
+    titleTouchBtn('btn-custom-switch', function() {
+      state.customizeEditing = state.customizeEditing === 0 ? 1 : 0;
+      var newCustom = state.customizeEditing === 0 ? state.customization.harper : state.customization.audrey;
+      state.customizeColorIndex = state.customizeRow === 0 ? newCustom.hairIndex : newCustom.outfitIndex;
+      sfxMenuSelect();
+    });
+
+    titleTouchBtn('btn-custom-done', function() {
+      try { localStorage.setItem('dragonIslandCustom', JSON.stringify(state.customization)); } catch(e) {}
+      state.screen = 'title';
+      state.titleStep = 'mode';
+      state.titleSelection = 0;
+      sfxMenuConfirm();
+      updateTitleTouchUI();
     });
 
     titleTouchBtn('btn-adventure', function() {
@@ -8014,6 +8414,9 @@
       if (state.screen === 'title') {
         updateTitleScreen();
         drawTitleScreen();
+      } else if (state.screen === 'customize') {
+        updateCustomizeScreen();
+        drawCustomizeScreen();
       } else if (state.screen === 'playing') {
         // Guest: send input to Firebase, skip game logic
         if (state.isGuest) {
