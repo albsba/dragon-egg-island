@@ -118,6 +118,25 @@
       color: #9B59B6;
     }
 
+    /* Ride buttons */
+    .ride-btn {
+      position: fixed;
+      width: 65px;
+      height: 65px;
+      border-radius: 50%;
+      border: 2px solid #4CAF50;
+      background: rgba(76, 175, 80, 0.15);
+      color: #4CAF50;
+      font-family: monospace;
+      font-size: 11px;
+      font-weight: bold;
+      z-index: 20;
+      touch-action: manipulation;
+      display: none;
+    }
+    .ride-btn-left { bottom: 100px; left: 160px; }
+    .ride-btn-right { bottom: 100px; right: 160px; }
+
     /* Title screen touch buttons */
     #title-touch-btns {
       position: fixed;
@@ -361,6 +380,10 @@
     <button class="dpad-btn dpad-right" data-key="d">►</button>
     <button class="dpad-btn dpad-down"  data-key="s">▼</button>
   </div>
+
+  <!-- Ride buttons -->
+  <button id="ride-btn-left" class="ride-btn ride-btn-left" style="display:none;">RIDE</button>
+  <button id="ride-btn-right" class="ride-btn ride-btn-right" style="display:none;">RIDE</button>
 
   <!-- Title screen touch buttons (only visible on title screen + touch) -->
   <div id="title-touch-btns">
@@ -847,6 +870,14 @@
       if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) {
         e.preventDefault();
       }
+      // R key: toggle ride for P1 (player 0), F key: toggle ride for P2 (player 1)
+      if (state.screen === 'playing') {
+        if (e.key === 'r' || e.key === 'R') {
+          toggleRide(state.activePlayerCount === 1 ? state.activePlayer : 0);
+        } else if (e.key === 'f' || e.key === 'F') {
+          if (state.activePlayerCount >= 2) toggleRide(1);
+        }
+      }
     });
 
     window.addEventListener('keyup', (e) => {
@@ -1006,27 +1037,42 @@
     }
 
     function drawPlayers() {
-      for (const p of getActivePlayers()) {
-        drawSprite(p.sprite, p.x * TILE, (p.y + UI_ROWS) * TILE, TILE);
+      const active = getActivePlayers();
+      for (let i = 0; i < active.length; i++) {
+        const p = active[i];
+        const pi = state.activePlayerCount === 1 ? state.activePlayer : i;
+        const px = p.x * TILE;
+        const py = (p.y + UI_ROWS) * TILE;
 
-        if (p.name === 'Harper') {
-          const sx = p.x * TILE + TILE - 6;
-          const sy = (p.y + UI_ROWS) * TILE + 2;
-          const twinkle = Math.sin(state.time * 3) * 0.3 + 0.7;
-          ctx.fillStyle = `rgba(255, 255, 255, ${twinkle})`;
-          ctx.font = '8px serif';
-          ctx.textAlign = 'left';
-          ctx.fillText('\u2744', sx, sy + 8);
-        }
+        if (state.riding[pi] && state.ridingDragon[pi]) {
+          // Draw riding dragon (larger)
+          const dragonKey = state.ridingDragon[pi];
+          drawSprite(DRAGON_SPRITES[dragonKey], px - 4, py - 4, 40);
+          // Draw character on top (smaller)
+          drawSprite(p.sprite, px + 8, py - 8, 18);
+        } else {
+          // Normal drawing
+          drawSprite(p.sprite, px, py, TILE);
 
-        if (p.name === 'Audrey') {
-          const sx = p.x * TILE + TILE - 6;
-          const sy = (p.y + UI_ROWS) * TILE + 2;
-          const twinkle = Math.sin(state.time * 4) * 0.3 + 0.7;
-          ctx.fillStyle = `rgba(200, 150, 255, ${twinkle})`;
-          ctx.font = '8px serif';
-          ctx.textAlign = 'left';
-          ctx.fillText('\u2726', sx, sy + 8);
+          if (p.name === 'Harper') {
+            const sx = px + TILE - 6;
+            const sy = py + 2;
+            const twinkle = Math.sin(state.time * 3) * 0.3 + 0.7;
+            ctx.fillStyle = `rgba(255, 255, 255, ${twinkle})`;
+            ctx.font = '8px serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('\u2744', sx, sy + 8);
+          }
+
+          if (p.name === 'Audrey') {
+            const sx = px + TILE - 6;
+            const sy = py + 2;
+            const twinkle = Math.sin(state.time * 4) * 0.3 + 0.7;
+            ctx.fillStyle = `rgba(200, 150, 255, ${twinkle})`;
+            ctx.font = '8px serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('\u2726', sx, sy + 8);
+          }
         }
       }
     }
@@ -1221,6 +1267,8 @@
     state.hatching = [];
     state.unlockEffect = null;
     state.particles = [];
+    state.riding = [false, false];
+    state.ridingDragon = [null, null];
 
     // Online multiplayer state
     state.isHost = false;
@@ -1753,6 +1801,55 @@
     // ============================================================
     const MOVE_DELAY = 0.12;
 
+    function toggleRide(playerIdx) {
+      if (state.screen !== 'playing') return;
+
+      if (state.riding[playerIdx]) {
+        // Dismount
+        state.riding[playerIdx] = false;
+        state.ridingDragon[playerIdx] = null;
+      } else {
+        // Mount -- need at least one dragon in collection
+        const types = Object.keys(state.collection);
+        if (types.length === 0) return;
+
+        // Ride the most recently collected dragon type
+        const lastType = state.dragons.length > 0
+          ? state.dragons[state.dragons.length - 1].type
+          : types[types.length - 1];
+
+        state.riding[playerIdx] = true;
+        state.ridingDragon[playerIdx] = lastType;
+      }
+    }
+
+    function updateRideButtons() {
+      const btnL = document.getElementById('ride-btn-left');
+      const btnR = document.getElementById('ride-btn-right');
+      if (!btnL || !btnR) return;
+
+      const inGame = state.screen === 'playing' && isTouchDevice;
+      const hasDragons = Object.keys(state.collection).length > 0;
+
+      if (inGame && hasDragons) {
+        if (state.activePlayerCount === 1) {
+          const isLeft = state.activePlayer === 0;
+          btnL.style.display = isLeft ? 'block' : 'none';
+          btnR.style.display = isLeft ? 'none' : 'block';
+          const activeBtn = isLeft ? btnL : btnR;
+          activeBtn.textContent = state.riding[state.activePlayer] ? 'WALK' : 'RIDE';
+        } else {
+          btnL.style.display = 'block';
+          btnR.style.display = 'block';
+          btnL.textContent = state.riding[0] ? 'WALK' : 'RIDE';
+          btnR.textContent = state.riding[1] ? 'WALK' : 'RIDE';
+        }
+      } else {
+        btnL.style.display = 'none';
+        btnR.style.display = 'none';
+      }
+    }
+
     function spawnEggsForZone(zoneKey) {
       state.eggs = [];
       const zone = ZONES[zoneKey];
@@ -1998,19 +2095,45 @@
         }
         if (input.dx === 0 && input.dy === 0) continue;
 
+        const moveDelay = state.riding[pi] ? MOVE_DELAY / 2 : MOVE_DELAY;
+        let moved = false;
         let nx = p.x + input.dx;
         let ny = p.y + input.dy;
 
         if (!isSolid(state.currentZone, nx, ny) && !isOccupiedByOtherPlayer(pi, nx, ny)) {
           p.x = nx;
           p.y = ny;
-          p.moveTimer = MOVE_DELAY;
+          p.moveTimer = moveDelay;
+          moved = true;
         } else if (input.dx !== 0 && !isSolid(state.currentZone, p.x + input.dx, p.y) && !isOccupiedByOtherPlayer(pi, p.x + input.dx, p.y)) {
           p.x += input.dx;
-          p.moveTimer = MOVE_DELAY;
+          p.moveTimer = moveDelay;
+          moved = true;
         } else if (input.dy !== 0 && !isSolid(state.currentZone, p.x, p.y + input.dy) && !isOccupiedByOtherPlayer(pi, p.x, p.y + input.dy)) {
           p.y += input.dy;
-          p.moveTimer = MOVE_DELAY;
+          p.moveTimer = moveDelay;
+          moved = true;
+        }
+
+        // Riding trail particles
+        if (moved && state.riding[pi] && state.ridingDragon[pi] && Math.random() < 0.3) {
+          const dragonType = state.ridingDragon[pi];
+          const trailColors = {
+            fire: '#FF4500', ice: '#4FC3F7', nature: '#43A047',
+            love: '#E91E63', shadow: '#5E35B1', star: '#FFC107', rainbow: '#FF6B6B'
+          };
+          const trailParticle = {
+            x: p.x * TILE + TILE / 2,
+            y: (p.y + UI_ROWS) * TILE + TILE,
+            vx: (Math.random() - 0.5) * 15,
+            vy: Math.random() * 5 + 2,
+            life: 1.0,
+            maxLife: 1.0,
+            size: 2 + Math.random() * 2,
+            color: trailColors[dragonType] || '#fff',
+          };
+          if (dragonType === 'love') trailParticle.isHeart = true;
+          state.particles.push(trailParticle);
         }
       }
     }
@@ -2328,6 +2451,8 @@
       state.particles = [];
       state.hatching = [];
       state.unlockEffect = null;
+      state.riding = [false, false];
+      state.ridingDragon = [null, null];
 
       if (mode === 'freeplay') {
         state.unlockedZones = ['meadow', 'heart', 'enchanted', 'crystal', 'snowy', 'volcano', 'rainbow'];
@@ -2695,11 +2820,15 @@
     function updateTitleTouchUI() {
       const dpadLeft  = document.getElementById('dpad-left');
       const dpadRight = document.getElementById('dpad-right');
+      const rideBtnL = document.getElementById('ride-btn-left');
+      const rideBtnR = document.getElementById('ride-btn-right');
 
       if (state.screen === 'title') {
         titleTouchBtns.classList.add('visible');
         dpadLeft.classList.remove('visible');
         dpadRight.classList.remove('visible');
+        if (rideBtnL) rideBtnL.style.display = 'none';
+        if (rideBtnR) rideBtnR.style.display = 'none';
 
         // Show only the buttons for the current step
         const allStepBtns = [].concat(
@@ -2722,6 +2851,8 @@
         if (state.screen === 'dragonSelect') {
           dpadLeft.classList.remove('visible');
           dpadRight.classList.remove('visible');
+          if (rideBtnL) rideBtnL.style.display = 'none';
+          if (rideBtnR) rideBtnR.style.display = 'none';
           return;
         }
         // Show appropriate d-pad(s) for playing screen (hide for battle - uses drag)
@@ -2730,11 +2861,15 @@
           // Battle uses drag controls, not d-pads
           dpadLeft.classList.remove('visible');
           dpadRight.classList.remove('visible');
+          if (rideBtnL) rideBtnL.style.display = 'none';
+          if (rideBtnR) rideBtnR.style.display = 'none';
           return;
         }
         if (state.screen !== 'playing') {
           dpadLeft.classList.remove('visible');
           dpadRight.classList.remove('visible');
+          if (rideBtnL) rideBtnL.style.display = 'none';
+          if (rideBtnR) rideBtnR.style.display = 'none';
           return;
         }
         if (state.playerMode === '2p-online') {
@@ -2836,6 +2971,23 @@
 
     // Show title touch UI on load if on touch device
     updateTitleTouchUI();
+
+    // ---- Ride button wiring ----
+    document.getElementById('ride-btn-left').addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      toggleRide(state.activePlayerCount === 1 ? state.activePlayer : 0);
+    }, { passive: false });
+    document.getElementById('ride-btn-left').addEventListener('click', function() {
+      toggleRide(state.activePlayerCount === 1 ? state.activePlayer : 0);
+    });
+
+    document.getElementById('ride-btn-right').addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      toggleRide(state.activePlayerCount === 1 ? state.activePlayer : 1);
+    }, { passive: false });
+    document.getElementById('ride-btn-right').addEventListener('click', function() {
+      toggleRide(state.activePlayerCount === 1 ? state.activePlayer : 1);
+    });
 
     // ---- Dragon select touch wiring ----
     const dragonSelectTouch = document.getElementById('dragon-select-touch');
@@ -5707,6 +5859,8 @@
           updateUnlockEffect(dt);
           updateParticles(dt);
         }
+
+        updateRideButtons();
 
         // Draw (both host and guest)
         ctx.fillStyle = '#1a1a2e';
