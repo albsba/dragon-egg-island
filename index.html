@@ -2784,7 +2784,7 @@
             const jdx = joystick[jSide].knobX - joystick[jSide].baseX;
             const jdy = joystick[jSide].knobY - joystick[jSide].baseY;
             const jdist = Math.sqrt(jdx * jdx + jdy * jdy);
-            if (jdist > 15) {
+            if (jdist > 10) {
               if (Math.abs(jdx) > Math.abs(jdy)) {
                 input = { dx: Math.sign(jdx), dy: 0 };
               } else {
@@ -3565,10 +3565,14 @@
     document.addEventListener('touchstart', function(e) {
       if (state.screen !== 'playing') return;
 
+      // Prevent scrolling/gestures on the playing screen
+      e.preventDefault();
+
       for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
 
         // Skip if touching a button / d-pad / ride button
+        // If elementFromPoint returns null (e.g. on canvas), treat as joystick
         const target = document.elementFromPoint(touch.clientX, touch.clientY);
         if (target && (target.tagName === 'BUTTON' || target.closest('.dpad') || target.closest('.ride-btn'))) continue;
 
@@ -3581,8 +3585,6 @@
         } else {
           joystick[side] = { active: true, id: touch.identifier, baseX: touch.clientX, baseY: touch.clientY, knobX: touch.clientX, knobY: touch.clientY };
         }
-
-        e.preventDefault();
       }
     }, { passive: false });
 
