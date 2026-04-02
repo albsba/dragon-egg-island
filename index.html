@@ -1691,6 +1691,49 @@
       }
     }
 
+    function drawJoysticks() {
+      if (state.screen !== 'playing' || !isTouchDevice) return;
+
+      for (const side of ['left', 'right']) {
+        const j = joystick[side];
+        if (!j.active) continue;
+
+        // Convert screen coords to canvas coords
+        const canvasRect = canvas.getBoundingClientRect();
+        const scaleX = CANVAS_W / canvasRect.width;
+        const scaleY = CANVAS_H / canvasRect.height;
+
+        const baseX = (j.baseX - canvasRect.left) * scaleX;
+        const baseY = (j.baseY - canvasRect.top) * scaleY;
+        const knobX = (j.knobX - canvasRect.left) * scaleX;
+        const knobY = (j.knobY - canvasRect.top) * scaleY;
+
+        // Clamp knob distance to maxDist
+        const dx = knobX - baseX;
+        const dy = knobY - baseY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const maxDist = 40;
+        const clampedX = dist > maxDist ? baseX + (dx / dist) * maxDist : knobX;
+        const clampedY = dist > maxDist ? baseY + (dy / dist) * maxDist : knobY;
+
+        // Base circle
+        ctx.globalAlpha = 0.2;
+        ctx.fillStyle = side === 'left' ? '#87CEEB' : '#9B59B6';
+        ctx.beginPath();
+        ctx.arc(baseX, baseY, 40, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Knob
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = side === 'left' ? '#87CEEB' : '#9B59B6';
+        ctx.beginPath();
+        ctx.arc(clampedX, clampedY, 18, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.globalAlpha = 1;
+      }
+    }
+
     // ============================================================
     // GAME STATE
     // ============================================================
@@ -2702,7 +2745,23 @@
           // Use guest's remote input
           input = { dx: remoteGuestInput.dx, dy: remoteGuestInput.dy };
         } else {
-          input = getPlayerInput(p.keys.up, p.keys.down, p.keys.left, p.keys.right);
+          const jSide = pi === 0 ? 'left' : 'right';
+          if (joystick[jSide].active) {
+            const jdx = joystick[jSide].knobX - joystick[jSide].baseX;
+            const jdy = joystick[jSide].knobY - joystick[jSide].baseY;
+            const jdist = Math.sqrt(jdx * jdx + jdy * jdy);
+            if (jdist > 15) {
+              if (Math.abs(jdx) > Math.abs(jdy)) {
+                input = { dx: Math.sign(jdx), dy: 0 };
+              } else {
+                input = { dx: 0, dy: Math.sign(jdy) };
+              }
+            } else {
+              input = { dx: 0, dy: 0 };
+            }
+          } else {
+            input = getPlayerInput(p.keys.up, p.keys.down, p.keys.left, p.keys.right);
+          }
         }
         if (input.dx === 0 && input.dy === 0) continue;
 
@@ -3356,6 +3415,13 @@
       left: { active: false, id: -1, startX: 0, currentX: 0 },
       right: { active: false, id: -1, startX: 0, currentX: 0 },
     };
+
+    // ---- Adventure mode virtual joystick ----
+    const joystick = {
+      left:  { active: false, id: -1, baseX: 0, baseY: 0, knobX: 0, knobY: 0 },
+      right: { active: false, id: -1, baseX: 0, baseY: 0, knobX: 0, knobY: 0 },
+    };
+
     let guestSuperPressed = false;
     let battleDragHintTimer = 3;
     let screenShake = { x: 0, y: 0, timer: 0, intensity: 0 };
@@ -3440,6 +3506,68 @@
         }
         if (touchDrag.right.active && touchDrag.right.id === touch.identifier) {
           touchDrag.right.active = false;
+        }
+      }
+    });
+
+    // ---- Adventure mode joystick touch handlers ----
+    document.addEventListener('touchstart', function(e) {
+      if (state.screen !== 'playing') return;
+
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+
+        // Skip if touching a button / d-pad / ride button
+        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (target && (target.tagName === 'BUTTON' || target.closest('.dpad') || target.closest('.ride-btn'))) continue;
+
+        const screenMid = window.innerWidth / 2;
+        const side = touch.clientX < screenMid ? 'left' : 'right';
+
+        if (state.activePlayerCount === 1) {
+          const s = state.activePlayer === 0 ? 'left' : 'right';
+          joystick[s] = { active: true, id: touch.identifier, baseX: touch.clientX, baseY: touch.clientY, knobX: touch.clientX, knobY: touch.clientY };
+        } else {
+          joystick[side] = { active: true, id: touch.identifier, baseX: touch.clientX, baseY: touch.clientY, knobX: touch.clientX, knobY: touch.clientY };
+        }
+
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    document.addEventListener('touchmove', function(e) {
+      if (state.screen !== 'playing') return;
+
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        for (const side of ['left', 'right']) {
+          if (joystick[side].active && joystick[side].id === touch.identifier) {
+            joystick[side].knobX = touch.clientX;
+            joystick[side].knobY = touch.clientY;
+          }
+        }
+      }
+      e.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('touchend', function(e) {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        for (const side of ['left', 'right']) {
+          if (joystick[side].active && joystick[side].id === touch.identifier) {
+            joystick[side].active = false;
+          }
+        }
+      }
+    });
+
+    document.addEventListener('touchcancel', function(e) {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        for (const side of ['left', 'right']) {
+          if (joystick[side].active && joystick[side].id === touch.identifier) {
+            joystick[side].active = false;
+          }
         }
       }
     });
@@ -6740,6 +6868,7 @@
         drawUI();
         drawQuests();
         drawUnlockEffect();
+        drawJoysticks();
 
         // Online connection status overlay
         if (state.playerMode === '2p-online' && state.onlineStatus === 'disconnected') {
