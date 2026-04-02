@@ -1181,6 +1181,7 @@
     }
 
     function applyCustomization() {
+      if (!state.customization) return;
       const hc = state.customization.harper;
       const ac = state.customization.audrey;
 
@@ -3174,7 +3175,8 @@
     }
 
     // Handle touch taps on color circles in customize screen
-    canvas.addEventListener('click', function(e) {
+    // (deferred until canvas is available)
+    setTimeout(function() { canvas.addEventListener('click', function(e) {
       if (state.screen !== 'customize') return;
       var rect = canvas.getBoundingClientRect();
       var scaleX = CANVAS_W / rect.width;
@@ -3226,7 +3228,7 @@
         state.customizeColorIndex = state.customizeRow === 0 ? aCustom.hairIndex : aCustom.outfitIndex;
         sfxMenuSelect();
       }
-    });
+    }); }, 0);
 
     // ============================================================
     // TITLE SCREEN
