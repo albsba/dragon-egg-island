@@ -68,6 +68,11 @@
       left: 20px;
     }
 
+    .dpad-right-side {
+      left: auto !important;
+      right: 20px !important;
+    }
+
     #dpad-right {
       bottom: 20px;
       right: 20px;
@@ -4217,19 +4222,15 @@
         if (state.screen === 'flight' || state.screen === 'snake') {
           // Flight/Snake mode: show d-pads for directional control
           if (!isTouchDevice) return;
-          // Reset d-pad positions to defaults
-          dpadLeft.style.left = '20px';
-          dpadLeft.style.right = '';
-          dpadRight.style.right = '20px';
-          dpadRight.style.left = '';
+          // Reset d-pad right-side class by default
+          dpadLeft.classList.remove('dpad-right-side');
 
           if (state.playerMode === '2p-online') {
             // 2-iPad: each player sees one d-pad on the RIGHT side
             if (state.isHost) {
               dpadLeft.classList.add('visible');
               dpadRight.classList.remove('visible');
-              dpadLeft.style.left = '';
-              dpadLeft.style.right = '20px';
+              dpadLeft.classList.add('dpad-right-side');
             } else if (state.isGuest) {
               dpadLeft.classList.remove('visible');
               dpadRight.classList.add('visible');
@@ -4240,8 +4241,7 @@
               dpadLeft.classList.add('visible');
               dpadRight.classList.remove('visible');
               // 1P: move d-pad to right side
-              dpadLeft.style.left = '';
-              dpadLeft.style.right = '20px';
+              dpadLeft.classList.add('dpad-right-side');
             } else {
               dpadLeft.classList.remove('visible');
               dpadRight.classList.add('visible');
@@ -4258,6 +4258,7 @@
         if (state.screen !== 'playing') {
           dpadLeft.classList.remove('visible');
           dpadRight.classList.remove('visible');
+          dpadLeft.classList.remove('dpad-right-side');
           if (rideBtnL) rideBtnL.style.display = 'none';
           if (rideBtnR) rideBtnR.style.display = 'none';
           return;
@@ -4269,30 +4270,29 @@
             if (state.isHost) {
               dpadLeft.classList.add('visible');
               dpadRight.classList.remove('visible');
-              dpadLeft.style.left = '';
-              dpadLeft.style.right = '20px';
+              dpadLeft.classList.add('dpad-right-side');
             } else if (state.isGuest) {
               dpadLeft.classList.remove('visible');
               dpadRight.classList.add('visible');
+              dpadLeft.classList.remove('dpad-right-side');
               // already on right
             }
           } else if (state.activePlayerCount === 2) {
             // 2P same iPad: show both d-pads so player 2 can use d-pad
-            dpadLeft.style.left = '20px';
-            dpadLeft.style.right = '';
-            dpadRight.style.right = '20px';
-            dpadRight.style.left = '';
+            dpadLeft.classList.remove('dpad-right-side');
             dpadLeft.classList.add('visible');
             dpadRight.classList.add('visible');
           } else {
             // 1P: joystick only is fine
             dpadLeft.classList.remove('visible');
             dpadRight.classList.remove('visible');
+            dpadLeft.classList.remove('dpad-right-side');
           }
         } else {
           // Desktop: no d-pads needed (keyboard controls)
           dpadLeft.classList.remove('visible');
           dpadRight.classList.remove('visible');
+          dpadLeft.classList.remove('dpad-right-side');
         }
       }
     }
